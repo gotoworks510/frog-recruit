@@ -29,8 +29,9 @@ yarn-error.log*
 .env*.local
 
 # candidate PII — real seeded candidate data (emails, resume details). NEVER commit
-# to a public repo. The data lives in D1; keep this file local only.
-scripts/seed-candidates.sql
+# to a public repo. The data lives in D1; keep these files local only.
+# (scripts/seed.sql = Palm company/job seed, no PII, IS committed.)
+scripts/seed-*.sql
 
 # typescript
 *.tsbuildinfo
