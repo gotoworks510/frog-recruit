@@ -1,0 +1,58 @@
+name = "frog-recruit"
+main = ".open-next/worker.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# --- Bindings (IDs are filled in after `wrangler d1/kv create`) ---
+
+[[d1_databases]]
+binding = "DB"
+database_name = "frog-recruit-db"
+database_id = "e4eeced9-5269-4cac-a979-21ccacaefc4d"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "frog-recruit-files"        # `wrangler r2 bucket create frog-recruit-files`
+
+[[kv_namespaces]]
+binding = "KV"
+id = "f68df58a2fd643c98ed36a0b00ec116e"
+
+# --- Custom domain ---
+# Target: recruit.frog-school.com  (frog-school.com IS a Cloudflare zone, verified active).
+# custom_domain=true makes `wrangler deploy` provision the DNS record + managed TLS cert.
+[[routes]]
+pattern = "recruit.frog-school.com"
+custom_domain = true
+
+# FUTURE SWITCH → recruit.frogagent.com (frogagent.com is Netlify-managed, NOT a CF zone).
+# Requires Cloudflare for SaaS on the frog-school.com zone (currently 403/not enabled). Steps:
+#   1) Enable Cloudflare for SaaS; set this Worker as the Fallback Origin
+#      (originless dummy DNS record `recruit-fallback AAAA 100::`, proxied).
+#   2) Add a Worker route `recruit.frogagent.com/*` on the frog-school.com zone via API
+#      — NOT `*/*` (that would capture portal/mailsystem on frog-school.com).
+#   3) Create custom hostname `recruit.frogagent.com`; add the CNAME + TXT validation
+#      records at Netlify DNS (frogagent.com).
+#   4) Flip NEXTAUTH_URL / PUBLIC_BASE_URL below to https://recruit.frogagent.com and add
+#      that redirect URI to the Google OAuth client. (App reads the domain from these vars,
+#      so the code needs no change.)
+# Ref: https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/
+
+[vars]
+GOOGLE_CLIENT_ID = "1040291765049-ceb45aaaaaisdkt9vkh1hnkvbg9j5unm.apps.googleusercontent.com"
+NEXTAUTH_URL = "https://recruit.frog-school.com"
+ADMIN_EMAILS = "senna@frogagent.com"
+PUBLIC_BASE_URL = "https://recruit.frog-school.com"
+# Email sender — frogagent.com verified in Resend (owner confirmed 2026-06-22).
+RECRUIT_FROM_EMAIL = "Frog Recruit <recruit@frogagent.com>"
+
+# Required secrets (set via `wrangler secret put <NAME>`):
+#   NEXTAUTH_SECRET        - NextAuth session encryption key (openssl rand -base64 32)
+#   GOOGLE_CLIENT_SECRET   - Google OAuth client secret
+#   RESEND_API_KEY         - Resend email API key
+#   R2_ACCESS_KEY_ID       - R2 S3 access key (local dev proxy only)
+#   R2_SECRET_ACCESS_KEY   - R2 S3 secret key (local dev proxy only)
