@@ -9,9 +9,17 @@ import {
   recommendations,
   companies,
   jobs,
+  candidateFeedback,
 } from "@/lib/db/schema";
 import { buildEmployerCandidateView } from "@/lib/employer/candidate-dto";
 import { CandidateView } from "@/components/candidate/CandidateView";
+import {
+  INTEREST_LABELS_JA,
+  DECLINE_REASON_LABELS_JA,
+  parseDeclineReasons,
+  type InterestLevel,
+} from "@/lib/employer/feedback";
+import { formatDateTime } from "@/lib/date";
 import {
   setCandidateStatus,
   saveRecommendation,
@@ -64,6 +72,26 @@ export default async function AdminCandidateDetail({
     .orderBy(desc(recommendations.updatedAt))
     .all();
 
+  // Employer feedback on this candidate (across companies).
+  const feedback = await db
+    .select({
+      id: candidateFeedback.id,
+      companyName: companies.name,
+      employerEmail: users.email,
+      interest: candidateFeedback.interest,
+      wantsInterview: candidateFeedback.wantsInterview,
+      questionsMd: candidateFeedback.questionsMd,
+      declineReasons: candidateFeedback.declineReasons,
+      declineNote: candidateFeedback.declineNote,
+      updatedAt: candidateFeedback.updatedAt,
+    })
+    .from(candidateFeedback)
+    .leftJoin(companies, eq(candidateFeedback.companyId, companies.id))
+    .leftJoin(users, eq(candidateFeedback.employerUserId, users.id))
+    .where(eq(candidateFeedback.candidateProfileId, profile.id))
+    .orderBy(desc(candidateFeedback.updatedAt))
+    .all();
+
   // Preview: which company would see what. "general" or a companyId.
   const previewCompanyId =
     preview && preview !== "general" ? preview : null;
@@ -95,6 +123,18 @@ export default async function AdminCandidateDetail({
           </button>
         </form>
       </div>
+
+      {/* Employer feedback */}
+      <section className="space-y-3">
+        <h2 className="font-semibold text-ink">企業からのフィードバック</h2>
+        {feedback.length === 0 ? (
+          <p className="text-sm text-muted">
+            まだ企業からのフィードバックはありません。
+          </p>
+        ) : (
+          feedback.map((f) => <FeedbackCard key={f.id} f={f} />)
+        )}
+      </section>
 
       {/* Per-company recommendations */}
       <section className="space-y-4">
@@ -346,6 +386,88 @@ function RecommendationControls({ rec }: { rec?: RecRow }) {
       <button type="submit" className="btn-primary px-6 py-2.5">
         保存
       </button>
+    </div>
+  );
+}
+
+type FeedbackRow = {
+  id: string;
+  companyName: string | null;
+  employerEmail: string | null;
+  interest: InterestLevel;
+  wantsInterview: boolean;
+  questionsMd: string | null;
+  declineReasons: string | null;
+  declineNote: string | null;
+  updatedAt: Date;
+};
+
+function interestBadgeCls(interest: InterestLevel): string {
+  switch (interest) {
+    case "interested":
+      return "bg-emerald-50 text-emerald-700";
+    case "maybe":
+      return "bg-amber-50 text-amber-700";
+    case "not_interested":
+      return "bg-red-50 text-red-700";
+    default:
+      return "bg-surface-2 text-muted";
+  }
+}
+
+function FeedbackCard({ f }: { f: FeedbackRow }) {
+  const reasons = parseDeclineReasons(f.declineReasons);
+  return (
+    <div className="card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-semibold text-ink">{f.companyName ?? "—"}</p>
+          <p className="text-xs text-muted">{f.employerEmail}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-medium ${interestBadgeCls(
+              f.interest
+            )}`}
+          >
+            {INTEREST_LABELS_JA[f.interest]}
+          </span>
+          {f.wantsInterview && (
+            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-frog-dark">
+              面接希望
+            </span>
+          )}
+        </div>
+      </div>
+
+      {f.interest !== "not_interested" && f.questionsMd && (
+        <div className="mt-3">
+          <p className="text-xs font-medium text-muted">聞きたいこと / 追加情報</p>
+          <p className="mt-1 whitespace-pre-line text-sm text-ink">{f.questionsMd}</p>
+        </div>
+      )}
+
+      {f.interest === "not_interested" && (reasons.length > 0 || f.declineNote) && (
+        <div className="mt-3 space-y-2">
+          {reasons.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {reasons.map((code) => (
+                <span
+                  key={code}
+                  className="rounded-full bg-surface-2 px-2.5 py-1 text-xs text-ink"
+                >
+                  {DECLINE_REASON_LABELS_JA[code] ?? code}
+                </span>
+              ))}
+            </div>
+          )}
+          {f.declineNote && (
+            <p className="whitespace-pre-line text-sm text-ink">{f.declineNote}</p>
+          )}
+        </div>
+      )}
+
+      <p className="mt-3 text-xs text-muted">更新: {formatDateTime(f.updatedAt)}</p>
     </div>
   );
 }

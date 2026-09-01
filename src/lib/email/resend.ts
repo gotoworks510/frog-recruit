@@ -1,10 +1,38 @@
 import { Resend } from "resend";
+import { getCentralSuppressed } from "./central-suppression";
 
 let _resend: Resend | null = null;
 
+// Resend クライアントの emails.send をラップし、中央連絡停止リスト該当を送らない。
+// getResend を通す全経路（sendEmail・招待・cron 等）を一括でカバーする。
+function guardResend(client: Resend): Resend {
+  const origSend = client.emails.send.bind(client.emails);
+  type Args = Parameters<typeof origSend>;
+  const guarded = async (payload: Args[0], options?: Args[1]) => {
+    const suppressed = await getCentralSuppressed();
+    const p = payload as { to?: string | string[] };
+    if (typeof p.to === "string") {
+      if (suppressed.has(p.to.trim().toLowerCase())) {
+        console.warn(`[email] 中央連絡停止リストのためスキップ: ${p.to}`);
+        return { data: null, error: null };
+      }
+    } else if (Array.isArray(p.to)) {
+      const filtered = p.to.filter((a) => !suppressed.has(String(a).trim().toLowerCase()));
+      if (filtered.length === 0) {
+        console.warn("[email] 中央連絡停止リストのため全宛先スキップ");
+        return { data: null, error: null };
+      }
+      p.to = filtered;
+    }
+    return origSend(payload, options);
+  };
+  client.emails.send = guarded as typeof client.emails.send;
+  return client;
+}
+
 export function getResend(): Resend {
   if (!_resend) {
-    _resend = new Resend(process.env.RESEND_API_KEY);
+    _resend = guardResend(new Resend(process.env.RESEND_API_KEY));
   }
   return _resend;
 }

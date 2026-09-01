@@ -6,3 +6,4 @@ export * from "./employers";
 export * from "./access";
 export * from "./audit";
 export * from "./invites";
+export * from "./feedback";

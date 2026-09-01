@@ -6,7 +6,8 @@ export type AuditAction =
   | "view_detail"
   | "view_resume"
   | "download_resume"
-  | "preview_pdf";
+  | "preview_pdf"
+  | "submit_feedback";
 
 export interface AuditInput {
   actorUserId?: string | null;

@@ -7,24 +7,35 @@ import {
   createEmployer,
   rotateEmployerPassword,
   setEmployerDisabled,
+  deleteEmployer,
 } from "@/lib/admin/actions";
+import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
 
 const inputCls =
   "w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
 
 const ERRORS: Record<string, string> = {
   missing: "必要な項目が不足しています。",
-  exists: "このメールアドレスは既に登録されています。",
+  exists:
+    "このメールアドレスは既に企業アカウントとして登録されています。下の一覧から削除してから、再度発行してください。",
+  email_taken:
+    "このメールアドレスは別の種類のアカウント（候補者または管理者）で使用されているため、企業アカウントにはできません。",
+  notfound: "対象の企業アカウントが見つかりませんでした。",
 };
 
 export default async function AdminEmployers({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; created?: string; rotated?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    created?: string;
+    rotated?: string;
+    deleted?: string;
+  }>;
 }) {
   await requireAdmin();
   const db = await getD1Db();
-  const { error } = await searchParams;
+  const { error, deleted } = await searchParams;
 
   // Read once-only temp-password flash cookie (httpOnly; read server-side).
   let flash: { email: string; pw: string } | null = null;
@@ -61,6 +72,11 @@ export default async function AdminEmployers({
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
           {ERRORS[error] ?? "エラーが発生しました。"}
+        </div>
+      )}
+      {deleted && (
+        <div className="rounded-md bg-accent-soft p-3 text-sm text-frog-dark">
+          企業アカウントを削除しました。メールアドレスは再登録できます。
         </div>
       )}
       {flash && (
@@ -156,6 +172,15 @@ export default async function AdminEmployers({
                       <button className="text-danger hover:underline">
                         {e.disabledAt ? "有効化" : "無効化"}
                       </button>
+                    </form>
+                    <form action={deleteEmployer}>
+                      <input type="hidden" name="userId" value={e.userId} />
+                      <ConfirmSubmitButton
+                        className="text-danger hover:underline"
+                        message={`${e.email} の企業アカウントを完全に削除します。付与済みの閲覧権限もすべて取り消され、元に戻せません。よろしいですか？`}
+                      >
+                        削除
+                      </ConfirmSubmitButton>
                     </form>
                   </div>
                 </td>

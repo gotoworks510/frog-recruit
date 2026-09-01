@@ -25,6 +25,7 @@ export const viewAudit = sqliteTable(
         "view_resume",
         "download_resume",
         "preview_pdf",
+        "submit_feedback",
       ],
     }).notNull(),
     accessGrantId: text("access_grant_id"),

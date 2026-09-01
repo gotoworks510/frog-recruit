@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { and, eq, isNull } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
+import type { Database } from "@/lib/db/client";
 import {
   users,
   candidateProfiles,
@@ -117,7 +118,20 @@ export async function saveRecommendation(formData: FormData) {
       });
     }
   }
+
+  // Auto-grant this company's employers when the recommendation is actually
+  // shareable (published + shared + targets a specific company). Removes the
+  // manual /admin/grants step; the runtime access check still requires consent.
+  if (companyId && status === "published" && visibility === "shared") {
+    await autoGrantCompanyEmployers(db, {
+      candidateProfileId,
+      companyId,
+      grantedBy: session.user.id,
+    });
+  }
+
   revalidatePath("/admin/candidates");
+  revalidatePath("/admin/grants");
   revalidatePath("/me/preview");
   revalidatePath("/portal");
   // Redirect back to the candidate detail so the page shows the saved state
@@ -306,11 +320,19 @@ export async function createEmployer(formData: FormData) {
   if (!email || !companyId) redirect("/admin/employers?error=missing");
 
   const existing = await db
-    .select({ id: users.id })
+    .select({ role: users.role })
     .from(users)
     .where(eq(users.email, email))
     .get();
-  if (existing) redirect("/admin/employers?error=exists");
+  if (existing) {
+    // Employer duplicate can be cleared via the delete button on this screen;
+    // a collision with a candidate/admin account is a different situation.
+    redirect(
+      existing.role === "employer"
+        ? "/admin/employers?error=exists"
+        : "/admin/employers?error=email_taken"
+    );
+  }
 
   const company = await db
     .select({ name: companies.name })
@@ -412,7 +434,101 @@ export async function setEmployerDisabled(formData: FormData) {
   revalidatePath("/admin/employers");
 }
 
+/**
+ * Permanently delete an employer account and free its email for
+ * re-registration. Disabling only blocks login — the users row (and its unique
+ * email) remains, so a duplicate-email error persists. Deletion is the way to
+ * clear an "already registered" email.
+ *
+ * FK `ON DELETE CASCADE` removes the linked employer_accounts row and any
+ * access_grants for this employer. view_audit.actor_user_id has no FK, so the
+ * append-only audit history is intentionally preserved (actor id is retained
+ * but no longer resolves to a user).
+ */
+export async function deleteEmployer(formData: FormData) {
+  await requireAdmin();
+  const db = await getD1Db();
+  const userId = str(formData.get("userId"));
+  if (!userId) redirect("/admin/employers?error=missing");
+
+  // Safety: this screen only ever deletes employer accounts. Never remove an
+  // admin or candidate that might share the same id.
+  const u = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (!u || u.role !== "employer") {
+    redirect("/admin/employers?error=notfound");
+  }
+
+  await db.delete(users).where(eq(users.id, userId));
+  revalidatePath("/admin/employers");
+  redirect("/admin/employers?deleted=1");
+}
+
 // --- Access grants (consent-gated) ---------------------------------------
+
+/**
+ * Auto-grant: when a candidate recommendation is published + shared for a
+ * specific company, give every active (non-disabled) employer account of that
+ * company view access to the candidate — so admins no longer need a separate
+ * /admin/grants step after publishing a company-targeted recommendation.
+ *
+ * Idempotent: upserts on the unique (employer, candidate) index and reactivates
+ * a previously revoked grant, without touching an already-active grant's expiry.
+ *
+ * Consent is intentionally NOT required here. The grant row is inert until the
+ * runtime effective-access check (getEffectiveGrant / listGrantedCandidateIds)
+ * also sees an active consent AND a published/shared recommendation, so eager
+ * creation is safe and order-independent (works whether the candidate consents
+ * before or after the recommendation is shared).
+ */
+async function autoGrantCompanyEmployers(
+  db: Database,
+  params: { candidateProfileId: string; companyId: string; grantedBy: string }
+): Promise<void> {
+  const { candidateProfileId, companyId, grantedBy } = params;
+
+  const employers = await db
+    .select({ userId: employerAccounts.userId })
+    .from(employerAccounts)
+    .where(
+      and(
+        eq(employerAccounts.companyId, companyId),
+        isNull(employerAccounts.disabledAt)
+      )
+    )
+    .all();
+
+  for (const emp of employers) {
+    const existing = await db
+      .select({ id: accessGrants.id })
+      .from(accessGrants)
+      .where(
+        and(
+          eq(accessGrants.employerUserId, emp.userId),
+          eq(accessGrants.candidateProfileId, candidateProfileId)
+        )
+      )
+      .get();
+
+    if (existing) {
+      // Reactivate a revoked grant; leave an active grant's expiry untouched.
+      await db
+        .update(accessGrants)
+        .set({ revokedAt: null })
+        .where(eq(accessGrants.id, existing.id));
+    } else {
+      await db.insert(accessGrants).values({
+        employerUserId: emp.userId,
+        candidateProfileId,
+        companyId,
+        grantedBy,
+      });
+    }
+  }
+}
 
 export async function createGrant(formData: FormData) {
   const session = await requireAdmin();
