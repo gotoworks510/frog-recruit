@@ -48,7 +48,7 @@ NEXTAUTH_URL = "https://recruit.frog-school.com"
 ADMIN_EMAILS = "senna@frogagent.com"
 PUBLIC_BASE_URL = "https://recruit.frog-school.com"
 # Email sender — frogagent.com verified in Resend (owner confirmed 2026-06-22).
-RECRUIT_FROM_EMAIL = "Frog Recruit <recruit@frogagent.com>"
+RECRUIT_FROM_EMAIL = "Frog Recruit <agent@frogagent.com>"
 
 # Required secrets (set via `wrangler secret put <NAME>`):
 #   NEXTAUTH_SECRET        - NextAuth session encryption key (openssl rand -base64 32)

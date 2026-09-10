@@ -43,7 +43,7 @@ export default async function AdminInvites() {
         </button>
       </form>
       <p className="text-xs text-muted">
-        招待メールが {`<recruit@japan.frogagent.com>`} から送信されます。有効期限は14日間です。
+        招待メールが {`<agent@frogagent.com>`} から送信されます。有効期限は14日間です。
       </p>
 
       <div className="card overflow-hidden">

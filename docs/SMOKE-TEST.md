@@ -1,4 +1,4 @@
-# frog-recruit — スモークテスト手順
+﻿# frog-recruit — スモークテスト手順
 
 ローカル（`npm run dev` → http://localhost:3005）または本番デプロイ後に、3者の主要フローを通しで確認する。
 
@@ -15,7 +15,7 @@
 - [ ] `/admin/companies` に Palm が表示される（seed 済）。求人「Senior Backend Engineer / 175,000–190,000 USD」も。
 
 ### B. 招待制ゲート
-- [ ] `/admin/invites` でテスト候補者のメール（**B で使う別 Google アドレス**）を招待 → 招待メールが `recruit@japan.frogagent.com` から届く（またはコンソール/Resend ダッシュボードで確認）。
+- [ ] `/admin/invites` でテスト候補者のメール（**B で使う別 Google アドレス**）を招待 → 招待メールが `agent@frogagent.com` から届く（またはコンソール/Resend ダッシュボードで確認）。
 - [ ] 招待 URL を**別の**（未招待の）Google アカウントで開いてサインイン → **拒否**される（`/login?error=AccessDenied`）。
 - [ ] 招待 URL を**招待先と同じ**メールの Google でサインイン → `/consent` → 同意 → `/me`。
 
@@ -52,5 +52,5 @@
 
 - [ ] LP が 200 + noindex。
 - [ ] 実 Google で admin ログイン。
-- [ ] 実候補者を招待 → メール到達（`recruit@japan.frogagent.com`）。
+- [ ] 実候補者を招待 → メール到達（`agent@frogagent.com`）。
 - [ ] 企業アカウント発行 → ログイン → 透かしレジュメ → 監査記録。

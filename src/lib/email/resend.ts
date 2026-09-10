@@ -37,13 +37,9 @@ export function getResend(): Resend {
   return _resend;
 }
 
-/**
- * Sender. frogagent.com is NOT yet Resend-verified, so we send from the
- * verified japan.frogagent.com (same as frog-school-portal). Override via the
- * RECRUIT_FROM_EMAIL env var once frogagent.com is verified.
- */
+/** Sender. All Frog Resend mail uses agent@frogagent.com (override via RECRUIT_FROM_EMAIL). */
 export const FROM_EMAIL =
-  process.env.RECRUIT_FROM_EMAIL || "Frog Recruit <recruit@frogagent.com>";
+  process.env.RECRUIT_FROM_EMAIL || "Frog Recruit <agent@frogagent.com>";
 
 export interface SendResult {
   ok: boolean;

@@ -17,7 +17,7 @@ Frog が見極めた**海外就職候補者**を採用企業へ紹介する3者�
 ## ⚠️ 着手前に確認すべき前提（重要）
 
 1. **ドメインは `recruit.frog-school.com`** — frog-school.com は CF ゾーン active。`wrangler.toml` の `[[routes]] custom_domain=true` でデプロイ時に DNS+証明書が自動発行される。
-2. **Resend 送信元** — `frogagent.com` は未認証。**当面 `recruit@japan.frogagent.com` から送信**（`RECRUIT_FROM_EMAIL` / `src/lib/email/resend.ts`）。
+2. **Resend 送信元** — 全サービス統一で **`agent@frogagent.com`**（`RECRUIT_FROM_EMAIL` / `src/lib/email/resend.ts`）。
 3. **レジュメは PDF 限定**（透かし経路統一のため。`src/lib/storage/magic-bytes.ts` で magic-byte 強制）。
 
 ## ドメイン切替（recruit.frog-school.com → recruit.frogagent.com）

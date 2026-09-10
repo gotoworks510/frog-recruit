@@ -24,5 +24,5 @@ npm run dev                  # http://localhost:3005
 ## ⚠️ 重要な前提
 
 - `recruit.frogagent.com` は `frogagent.com` が **Cloudflare ゾーンであること**が前提（未確認。不可なら `recruit.frog-school.com` にフォールバック。`wrangler.toml` 参照）。
-- メール送信元は当面 `recruit@japan.frogagent.com`（`frogagent.com` の Resend 認証完了まで）。
+- メール送信元は `agent@frogagent.com`（Resend・全サービス統一）。
 - レジュメは **PDF 限定**。
