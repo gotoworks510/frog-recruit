@@ -1,11 +1,9 @@
 /**
  * Best-effort DOM extractors for LinkedIn / Indeed / Glassdoor job pages.
- * Sites change markup often — empty fields are OK; URL alone still creates a lead.
- *
- * IMPORTANT: this function is serialized into the page via chrome.scripting.executeScript.
- * Keep it self-contained (no outer-scope references).
+ * IMPORTANT: serialized into the page via chrome.scripting.executeScript.
+ * Keep self-contained. Async is OK — MV3 waits on the returned Promise.
  */
-function extractJobFromPage() {
+async function extractJobFromPage() {
   const href = location.href.split("#")[0];
   const host = location.hostname.toLowerCase();
   const text = (el) => (el?.textContent || "").replace(/\s+/g, " ").trim();
@@ -24,7 +22,88 @@ function extractJobFromPage() {
     return (d.textContent || "").replace(/\s+/g, " ").trim() || null;
   };
 
-  /** LinkedIn (and others) often embed schema.org JobPosting JSON-LD. */
+  const clickSeeMore = () => {
+    const nodes = Array.from(document.querySelectorAll("button, [role='button'], a"));
+    for (const b of nodes) {
+      const t = (b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+      if (
+        t === "see more" ||
+        t === "show more" ||
+        t === "…see more" ||
+        t === "...see more" ||
+        t === "もっと見る" ||
+        t.endsWith(" see more")
+      ) {
+        try {
+          b.click();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  };
+
+  /** Slice visible page text between About the job → next section. */
+  const aboutJobFromInnerText = () => {
+    const full = document.body?.innerText || "";
+    if (full.length < 40) return null;
+    const sm = /About the job/i.exec(full);
+    if (!sm) return null;
+    const start = sm.index + sm[0].length;
+    const endRes = [
+      /About the company/i,
+      /Show more jobs/i,
+      /More jobs like this/i,
+      /People also viewed/i,
+      /Similar jobs/i,
+      /How you match/i,
+      /Hiring team/i,
+      /Meet the hiring team/i,
+      /Applicant insights/i,
+      /Set an alert/i,
+      /Explore premium profile/i,
+    ];
+    let end = full.length;
+    const rest = full.slice(start);
+    for (const er of endRes) {
+      const m = er.exec(rest);
+      if (m) end = Math.min(end, start + m.index);
+    }
+    let out = full
+      .slice(start, end)
+      .replace(/^\s*see more\s*/i, "")
+      .replace(/\s*see less\s*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (out.length < 80) return null;
+    return out.slice(0, 20000);
+  };
+
+  const locationFromPageText = () => {
+    const lines = (document.body?.innerText || "")
+      .split("\n")
+      .map((l) => l.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .slice(0, 40);
+    for (const line of lines) {
+      if (line.length > 160) continue;
+      if (
+        /·/.test(line) &&
+        /(remote|hybrid|on-?site|canada|united states|\bUSA\b|\bUS\b|vancouver|toronto|british columbia|california|new york)/i.test(
+          line
+        )
+      ) {
+        return line
+          .replace(/\s*·\s*(Posted|Reposted).*$/i, "")
+          .replace(/\s*·\s*Over \d+.*$/i, "")
+          .replace(/\s*·\s*\d+\s+applicants.*$/i, "")
+          .replace(/\s*Easy Apply.*$/i, "")
+          .trim();
+      }
+    }
+    return null;
+  };
+
   const fromJsonLd = () => {
     const out = {
       title: null,
@@ -60,8 +139,7 @@ function extractJobFromPage() {
             ? node.hiringOrganization
             : null) ||
           out.companyName;
-        out.description =
-          stripHtml(node.description) || out.description;
+        out.description = stripHtml(node.description) || out.description;
         const loc = node.jobLocation;
         const locs = Array.isArray(loc) ? loc : loc ? [loc] : [];
         const parts = [];
@@ -81,7 +159,8 @@ function extractJobFromPage() {
           const max = val?.maxValue ?? sal.maxValue;
           const cur = sal.currency || val?.currency || "";
           if (min || max) {
-            out.salary = [min, max].filter((x) => x != null).join(" – ") +
+            out.salary =
+              [min, max].filter((x) => x != null).join(" – ") +
               (cur ? ` ${cur}` : "");
           }
         }
@@ -102,6 +181,7 @@ function extractJobFromPage() {
   let salary = null;
   let externalId = null;
   let sourceUrl = href;
+  let descriptionMethod = null;
 
   const ld = fromJsonLd();
 
@@ -120,7 +200,11 @@ function extractJobFromPage() {
       /* ignore */
     }
 
-    // Prefer JSON-LD, then logged-in unified UI, then public/guest topcard.
+    clickSeeMore();
+    await new Promise((r) => setTimeout(r, 450));
+    clickSeeMore();
+    await new Promise((r) => setTimeout(r, 300));
+
     title =
       ld.title ||
       firstText([
@@ -135,7 +219,6 @@ function extractJobFromPage() {
       ]) ||
       meta('meta[property="og:title"]');
 
-    // og:title is often "Role | Company | LinkedIn"
     if (title && /\|\s*LinkedIn\s*$/i.test(title)) {
       const parts = title.split("|").map((p) => p.trim());
       if (parts.length >= 2) {
@@ -168,9 +251,9 @@ function extractJobFromPage() {
         ".topcard__flavor--bullet",
         ".topcard__flavor",
         ".job-details-jobs-unified-top-card__primary-description-container",
-      ]);
+      ]) ||
+      locationFromPageText();
 
-    // Prefer the about-the-job article; avoid "more jobs" grids.
     const descRoot =
       document.querySelector(".show-more-less-html__markup") ||
       document.querySelector(".description__text") ||
@@ -178,16 +261,26 @@ function extractJobFromPage() {
       document.querySelector(".jobs-description__content") ||
       document.querySelector(".jobs-box__html-content") ||
       document.querySelector(".jobs-description-content__text") ||
+      document.querySelector(".jobs-description") ||
+      document.querySelector("article.jobs-description__container") ||
       document.querySelector(".core-section-container__content");
-    description = ld.description || text(descRoot) || null;
+
+    if (ld.description && ld.description.length >= 80) {
+      description = ld.description;
+      descriptionMethod = "jsonld";
+    } else if (text(descRoot) && text(descRoot).length >= 80) {
+      description = text(descRoot);
+      descriptionMethod = "dom";
+    } else {
+      description = aboutJobFromInnerText();
+      descriptionMethod = description ? "innerText-slice" : null;
+    }
+
     salary = ld.salary || salary;
   } else if (source === "indeed") {
     title =
       ld.title ||
-      firstText([
-        "[data-testid='jobsearch-JobInfoHeader-title']",
-        "h1",
-      ]) ||
+      firstText(["[data-testid='jobsearch-JobInfoHeader-title']", "h1"]) ||
       meta('meta[property="og:title"]');
     companyName =
       ld.companyName ||
@@ -209,10 +302,7 @@ function extractJobFromPage() {
       null;
     salary =
       ld.salary ||
-      firstText([
-        "#salaryInfoAndJobType",
-        "[data-testid='attribute_snippet_testid']",
-      ]);
+      firstText(["#salaryInfoAndJobType", "[data-testid='attribute_snippet_testid']"]);
     const m = href.match(/[?&]jk=([a-z0-9]+)/i) || href.match(/\/viewjob\?jk=([a-z0-9]+)/i);
     if (m) externalId = m[1];
   } else if (source === "glassdoor") {
@@ -242,13 +332,10 @@ function extractJobFromPage() {
     description = description.slice(0, 20000) + "…";
   }
 
-  // Drop useless titles.
   if (title && /^(linkedin|indeed|glassdoor)$/i.test(title.trim())) {
     title = null;
   }
 
-  // LinkedIn SPA often hides job fields from querySelector, but document.title
-  // is reliable: "Software Engineer, Products | Jetson | LinkedIn"
   const docTitle = (document.title || "").replace(/\s+/g, " ").trim();
   if (source === "linkedin" && docTitle) {
     const parts = docTitle.split("|").map((p) => p.trim()).filter(Boolean);
@@ -269,6 +356,19 @@ function extractJobFromPage() {
       meta('meta[property="og:description"]') ||
       meta('meta[name="description"]') ||
       null;
+    if (description) descriptionMethod = descriptionMethod || "meta";
+  }
+
+  if (source === "linkedin" && (!description || description.length < 80)) {
+    const sliced = aboutJobFromInnerText();
+    if (sliced && sliced.length > (description?.length || 0)) {
+      description = sliced;
+      descriptionMethod = "innerText-slice";
+    }
+  }
+
+  if (source === "linkedin" && !locationText) {
+    locationText = locationFromPageText();
   }
 
   return {
@@ -287,6 +387,9 @@ function extractJobFromPage() {
       titleDocument: document.title,
       pageUrl: href,
       usedJsonLd: !!(ld.title || ld.description || ld.companyName),
+      descriptionMethod,
+      descriptionLength: description ? description.length : 0,
+      bodyTextLength: (document.body?.innerText || "").length,
     },
   };
 }
@@ -295,7 +398,7 @@ document.getElementById("save").addEventListener("click", async () => {
   const status = document.getElementById("status");
   const btn = document.getElementById("save");
   btn.disabled = true;
-  status.textContent = "Capturing…";
+  status.textContent = "Capturing (expanding See more)…";
 
   try {
     const cfg = await chrome.storage.sync.get({
@@ -319,9 +422,7 @@ document.getElementById("save").addEventListener("click", async () => {
         func: extractJobFromPage,
       });
       const first = injected?.[0];
-      if (first?.error) {
-        console.warn("extract error", first.error);
-      }
+      if (first?.error) console.warn("extract error", first.error);
       if (first?.result && typeof first.result === "object") {
         payload = first.result;
       }
@@ -386,9 +487,11 @@ document.getElementById("save").addEventListener("click", async () => {
     }
 
     const label = [data.title, data.companyName].filter(Boolean).join(" @ ");
+    const descLen = payload.description ? payload.description.length : 0;
+    const method = payload.raw?.descriptionMethod || "?";
     status.textContent = label
-      ? `${data.duplicate ? "Updated" : "Saved"}: ${label}\nscore ${data.score}\n${data.inboxUrl}`
-      : `${data.duplicate ? "Updated existing lead" : "Saved"} (score ${data.score}).\n${data.inboxUrl}`;
+      ? `${data.duplicate ? "Updated" : "Saved"}: ${label}\nJD ${descLen} chars (${method})\nscore ${data.score}\n${data.inboxUrl}`
+      : `${data.duplicate ? "Updated" : "Saved"} (score ${data.score}).\nJD ${descLen} chars\n${data.inboxUrl}`;
   } catch (err) {
     status.textContent = String(err?.message || err);
   } finally {
