@@ -77,11 +77,23 @@ export async function POST(request: Request) {
     return json({ error: "Unauthorized" }, { status: 401, origin });
   }
 
-  let body: CaptureBody;
+  let body: CaptureBody | null = null;
   try {
-    body = (await request.json()) as CaptureBody;
+    const parsed: unknown = await request.json();
+    if (parsed && typeof parsed === "object") {
+      body = parsed as CaptureBody;
+    }
   } catch {
     return json({ error: "Invalid JSON" }, { status: 400, origin });
+  }
+  if (!body) {
+    return json(
+      {
+        error:
+          "Empty capture payload. Re-open the job detail (or reload the tab) and try Save again.",
+      },
+      { status: 400, origin }
+    );
   }
 
   const sourceUrl = body.sourceUrl?.trim();
