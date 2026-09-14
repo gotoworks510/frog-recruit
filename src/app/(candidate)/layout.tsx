@@ -1,4 +1,4 @@
-import { requireCandidate } from "@/lib/auth/helpers";
+import { requireCandidateSession } from "@/lib/candidate/guard";
 import { signOut } from "@/lib/auth/auth";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { SiteFooter } from "@/components/brand/SiteFooter";
@@ -6,13 +6,16 @@ import { CandidateNav } from "@/components/candidate/CandidateNav";
 import { ViewAsBanner } from "@/components/admin/ViewAsBanner";
 import { isViewAsSession } from "@/lib/auth/view-as";
 import { exitViewAs } from "@/lib/admin/actions";
+import Link from "next/link";
 
 export default async function CandidateLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await requireCandidate();
+  // Light guard so /me/account/password can render before consent / must-reset.
+  // Individual pages call requireCandidate() (full Ready) as needed.
+  const session = await requireCandidateSession();
   const previewing = isViewAsSession(session);
   const displayName = session.user.name ?? session.user.email ?? "Candidate";
 
@@ -24,6 +27,14 @@ export default async function CandidateLayout({
           <BrandMark href="/me" variant="white" logoHeight={28} />
           <div className="flex items-center gap-4 text-sm">
             <span className="hidden text-white/80 sm:inline">{displayName}</span>
+            {!previewing && (
+              <Link
+                href="/me/account/password"
+                className="text-white/80 transition hover:text-white"
+              >
+                Account
+              </Link>
+            )}
             {previewing ? (
               <form action={exitViewAs}>
                 <button className="text-white/80 transition hover:text-white">

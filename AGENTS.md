@@ -3,31 +3,25 @@
 > 2026-09-03: 正本を AGENTS.md に移行。CLAUDE.md は Claude Code 向けブリッジ。
 
 
-Frog が見極めた**海外就職候補者**を採用企業へ紹介する3者向けWebサービス。Slack 投稿（Palm 社のシニア Backend Engineer 募集、USD $175k–190k）をきっかけに新設。**本番ドメイン `recruit.frog-school.com`**（2026-06-22 オーナー決定。frog-school.com は CF ゾーンのため全自動デプロイ可）、Cloudflare で完結。将来 `recruit.frogagent.com` への切替は Cloudflare for SaaS 経由で想定済（下記「ドメイン切替」）。
+Frog が見極めた**海外就職候補者**を採用企業へ紹介する3者向けWebサービス。Slack 投稿（Palm 社のシニア Backend Engineer 募集、USD $175k–190k）をきっかけに新設。**本番ドメイン `recruit.frogagent.com`**（2026-09-14 切替。旧 `recruit.frog-school.com` は308で新ドメインへ）。frogagent.com / frog-school.com ともCFゾーン。
 
 ## このプロジェクトの性質
 
 - **Next.js 15.5 (App Router) + React 19 + TypeScript 5**（frog-school-portal と同一スタックを踏襲）
 - **Cloudflare Workers** via `@opennextjs/cloudflare` / **D1 (drizzle)** / **R2**（レジュメ）/ **KV**（ログインレート制限）/ **Resend**（メール）
 - **NextAuth v5 + JWT セッション** — Google（候補者・管理者）＋ Credentials（採用企業）の**混在認証**
-- **3ロール**: `admin`（Frogスタッフ）/ `candidate`（招待制・Google）/ `employer`（管理者発行のメール＋PBKDF2パスワード）
-- dev ポート **3005**（`npm run dev`）。本番 `recruit.frog-school.com`。
+- **3ロール**: `admin`（Frogスタッフ）/ `candidate`（管理者がメール＋仮パスワード発行、または招待制Google）/ `employer`（管理者発行のメール＋PBKDF2パスワード）
+- **候補者ログイン**: 新規はCredentials（`/login`）。既存Google招待も併存。紹介パイプラインは `candidate_introductions`（`/me` に表示）。
+- dev ポート **3005**（`npm run dev`）。本番 `recruit.frogagent.com`。
 - **GitHub: `github.com/gotoworks510/frog-recruit`（⚠️ public・`main`）。** 変更は commit & push で管理。⚠️ public のため**秘密情報と候補者PIIはコミット禁止**: `.env`/`.dev.vars`（secrets）と **`scripts/seed-candidates.sql`（実在候補者の email・経歴）は gitignore 済**。新たに PII/秘密を含むファイルを足す時は必ず `.gitignore` に追加し、`git grep --cached` で漏れを確認してから commit。
 
 ## ⚠️ 着手前に確認すべき前提（重要）
 
-1. **ドメインは `recruit.frog-school.com`** — frog-school.com は CF ゾーン active。`wrangler.toml` の `[[routes]] custom_domain=true` でデプロイ時に DNS+証明書が自動発行される。
+1. **ドメインは `recruit.frogagent.com`** — `wrangler.toml` の `[[routes]] custom_domain=true` で DNS+証明書。旧 `recruit.frog-school.com` は残し、middleware で308。
 2. **Resend 送信元** — 全サービス統一で **`agent@frogagent.com`**（`RECRUIT_FROM_EMAIL` / `src/lib/email/resend.ts`）。
-3. **レジュメは PDF 限定**（透かし経路統一のため。`src/lib/storage/magic-bytes.ts` で magic-byte 強制）。
-
-## ドメイン切替（recruit.frog-school.com → recruit.frogagent.com）
-
-frogagent.com は Netlify 管理で CF ゾーンではないため、Worker を当ホスト名で出すには **Cloudflare for SaaS** が必要（現状アカウントで 403=未有効）。切替手順:
-1. frog-school.com ゾーンで Cloudflare for SaaS を有効化し、この Worker を **Fallback Origin** に設定（originless ダミー DNS `recruit-fallback AAAA 100::`、proxied）。
-2. **Worker route `recruit.frogagent.com/*`** を frog-school.com ゾーンに API 追加（`*/*` は不可＝portal/mailsystem を巻き込む）。
-3. **Custom Hostname `recruit.frogagent.com`** を作成 → 払い出される CNAME + TXT 検証レコードを **Netlify DNS(frogagent.com)** に追加。
-4. `wrangler.toml` の `NEXTAUTH_URL` / `PUBLIC_BASE_URL` を `https://recruit.frogagent.com` に変更し、Google OAuth に当該リダイレクト URI を追加。**アプリのコード変更は不要**（ドメインは env から読む）。
-- 参考: https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/
+3. **📧 メールは必ず共通HTMLシェル** — `sendEmail({ subject, subtitle, bodyHtml })` のみ使う（`src/lib/email/resend.ts` が `wrapEmailHtml` を強制適用）。素のテキストや独自フルHTMLで送らない。本文ビルダーは `src/lib/email/messages.ts` に追加し、中身だけ返す。
+4. **レジュメは PDF 限定**（透かし経路統一のため。`src/lib/storage/magic-bytes.ts` で magic-byte 強制）。
+5. **Google OAuth** — 承認済みリダイレクト URI に `https://recruit.frogagent.com/api/auth/callback/google` が必須（旧URIも一時残してよい）。
 
 ## アーキテクチャの約束
 
@@ -89,18 +83,16 @@ npm run deploy              # @opennextjs/cloudflare build → wrangler deploy
 
 ## デプロイ状況（2026-06-22 デプロイ済 🟢）
 
-本番: **https://recruit.frog-school.com**（CF Worker / OpenNext）。完了済:
-- [x] CF リソース作成・wrangler.toml に ID 反映: D1 `frog-recruit-db`=`e4eeced9-5269-4cac-a979-21ccacaefc4d` / R2 `frog-recruit-files` / KV=`f68df58a2fd643c98ed36a0b00ec116e`
-- [x] ドメイン: `recruit.frog-school.com`（`custom_domain=true` で DNS+証明書自動発行）
-- [x] 本番 D1 マイグレ＋Palm seed（`scripts/migrations/0001_init.sql` / `scripts/seed.sql`）
-- [x] Worker secrets: `AUTH_SECRET` / `NEXTAUTH_SECRET`（生成）/ `GOOGLE_CLIENT_SECRET` / `RESEND_API_KEY`
-- [x] `[vars]` GOOGLE_CLIENT_ID / NEXTAUTH_URL / PUBLIC_BASE_URL / ADMIN_EMAILS / RECRUIT_FROM_EMAIL
-- [x] スモーク（`/` 200・noindex・CSP・`/login` Google ボタン・`/robots.txt`）
+本番: **https://recruit.frogagent.com**（CF Worker / OpenNext）。旧ドメインは308リダイレクト。完了済:
+- [x] CF リソース: D1 `frog-recruit-db` / R2 `frog-recruit-files` / KV
+- [x] ドメイン: `recruit.frogagent.com`（primary）+ `recruit.frog-school.com`（legacy redirect）
+- [x] `[vars]` NEXTAUTH_URL / PUBLIC_BASE_URL = `https://recruit.frogagent.com`
 
-**⚠️ 残オーナー作業（これが無いと Google ログイン不可）**:
-- [ ] Google Cloud Console の OAuth クライアント（`1040291765049-…`）の「承認済みのリダイレクト URI」に
-      `https://recruit.frog-school.com/api/auth/callback/google`（+ ローカル用 `http://localhost:3005/api/auth/callback/google`）を登録。
-- [ ] 上記登録後、`senna@frogagent.com`（ADMIN_EMAILS）で `https://recruit.frog-school.com/login` から Google ログイン → `/admin` に入れることを確認。
+**⚠️ オーナー作業（Googleログイン）**:
+- [ ] Google Cloud Console OAuth クライアントに
+      `https://recruit.frogagent.com/api/auth/callback/google`（+ ローカル `http://localhost:3005/api/auth/callback/google`）を登録。
+- [ ] `senna@frogagent.com` で新ドメインの `/login` → `/admin` を確認。
+- [ ] Chrome拡張 Options の API base を `https://recruit.frogagent.com` に更新。
 
 **再デプロイ**: コード変更後は `frog-recruit` で `& .\node_modules\.bin\opennextjs-cloudflare.cmd build` → `& .\node_modules\.bin\wrangler.cmd deploy`（`npm run deploy` は `npx` 不調の環境があるためローカルバイナリ直叩き推奨。`CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` は `../.env` から）。
 

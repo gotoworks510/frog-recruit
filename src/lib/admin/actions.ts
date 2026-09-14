@@ -14,6 +14,8 @@ import {
   companies,
   jobs,
   employerAccounts,
+  candidateAccounts,
+  candidateIntroductions,
   accessGrants,
   candidateConsents,
   candidateInvites,
@@ -22,8 +24,13 @@ import { hashPassword, generateTempPassword } from "@/lib/auth/password";
 import { sendEmail } from "@/lib/email/resend";
 import {
   buildCandidateInviteEmail,
+  buildCandidateCredentialsEmail,
   buildEmployerCredentialsEmail,
 } from "@/lib/email/messages";
+import {
+  INTRO_STATUSES,
+  type IntroStatus,
+} from "@/lib/db/schema/introductions";
 
 function str(v: FormDataEntryValue | null): string | null {
   const s = (v as string | null)?.trim();
@@ -37,6 +44,48 @@ function num(v: FormDataEntryValue | null): number | null {
 
 const INVITE_TTL_DAYS = 14;
 const EMP_PW_COOKIE = "recruit_emp_pw";
+const CAND_PW_COOKIE = "recruit_cand_pw";
+
+async function ensureIntroduction(
+  db: Database,
+  params: {
+    candidateProfileId: string;
+    companyId: string;
+    updatedBy: string;
+    status?: IntroStatus;
+  }
+) {
+  const { candidateProfileId, companyId, updatedBy } = params;
+  const status = params.status ?? "shared";
+  const existing = await db
+    .select({ id: candidateIntroductions.id, status: candidateIntroductions.status })
+    .from(candidateIntroductions)
+    .where(
+      and(
+        eq(candidateIntroductions.candidateProfileId, candidateProfileId),
+        eq(candidateIntroductions.companyId, companyId)
+      )
+    )
+    .get();
+
+  if (existing) {
+    // Don't downgrade a later pipeline status when re-sharing.
+    if (existing.status === "planned" && status !== "planned") {
+      await db
+        .update(candidateIntroductions)
+        .set({ status, updatedBy, updatedAt: new Date() })
+        .where(eq(candidateIntroductions.id, existing.id));
+    }
+    return;
+  }
+
+  await db.insert(candidateIntroductions).values({
+    candidateProfileId,
+    companyId,
+    status,
+    updatedBy,
+  });
+}
 
 // --- Candidate vetting ---------------------------------------------------
 
@@ -128,6 +177,12 @@ export async function saveRecommendation(formData: FormData) {
       companyId,
       grantedBy: session.user.id,
     });
+    await ensureIntroduction(db, {
+      candidateProfileId,
+      companyId,
+      updatedBy: session.user.id,
+      status: "shared",
+    });
   }
 
   revalidatePath("/admin/candidates");
@@ -183,8 +238,8 @@ export async function createInvite(formData: FormData) {
     createdBy: session.user.id,
   });
 
-  const { subject, html } = buildCandidateInviteEmail({ name, token });
-  await sendEmail({ to: email, subject, html });
+  const { subject, subtitle, bodyHtml } = buildCandidateInviteEmail({ name, token });
+  await sendEmail({ to: email, subject, subtitle, bodyHtml });
 
   revalidatePath("/admin/invites");
 }
@@ -346,13 +401,13 @@ export async function createEmployer(formData: FormData) {
     createdBy: session.user.id,
   });
 
-  const { subject, html } = buildEmployerCredentialsEmail({
+  const { subject, subtitle, bodyHtml } = buildEmployerCredentialsEmail({
     companyName: company.name,
     contactName,
     email,
     tempPassword,
   });
-  await sendEmail({ to: email, subject, html });
+  await sendEmail({ to: email, subject, subtitle, bodyHtml });
 
   await flashTempPassword(email, tempPassword);
   redirect("/admin/employers?created=1");
@@ -391,12 +446,12 @@ export async function rotateEmployerPassword(formData: FormData) {
       .get();
     if (c?.name) companyName = c.name;
   }
-  const { subject, html } = buildEmployerCredentialsEmail({
+  const { subject, subtitle, bodyHtml } = buildEmployerCredentialsEmail({
     companyName,
     email: u.email,
     tempPassword,
   });
-  await sendEmail({ to: u.email, subject, html });
+  await sendEmail({ to: u.email, subject, subtitle, bodyHtml });
 
   await flashTempPassword(u.email, tempPassword);
   redirect("/admin/employers?rotated=1");
@@ -584,6 +639,12 @@ export async function createGrant(formData: FormData) {
       canDownloadResume,
     });
   }
+  await ensureIntroduction(db, {
+    candidateProfileId,
+    companyId: employer.companyId,
+    updatedBy: session.user.id,
+    status: "shared",
+  });
   redirect("/admin/grants?ok=1");
 }
 
@@ -661,4 +722,211 @@ export async function exitViewAs() {
   const { clearViewAsCookie } = await import("@/lib/auth/view-as");
   await clearViewAsCookie();
   redirect("/admin");
+}
+
+// --- Candidate credentials + introductions -------------------------------
+
+async function flashCandidateTempPassword(email: string, pw: string) {
+  const c = await cookies();
+  c.set(CAND_PW_COOKIE, JSON.stringify({ email, pw }), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 120,
+    path: "/admin/candidates",
+  });
+}
+
+export async function createCandidateAccount(formData: FormData) {
+  const session = await requireAdmin();
+  const db = await getD1Db();
+  const email = str(formData.get("email"))?.toLowerCase();
+  const name = str(formData.get("name"));
+  if (!email) redirect("/admin/candidates?error=missing");
+
+  const existing = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.email, email))
+    .get();
+  if (existing) {
+    redirect(
+      existing.role === "candidate"
+        ? "/admin/candidates?error=exists"
+        : "/admin/candidates?error=email_taken"
+    );
+  }
+
+  const tempPassword = generateTempPassword();
+  const { hash, salt } = await hashPassword(tempPassword);
+  const userId = crypto.randomUUID();
+
+  await db.insert(users).values({
+    id: userId,
+    email,
+    name,
+    role: "candidate",
+    status: "approved",
+    authProvider: "credentials",
+    passwordHash: hash,
+    passwordSalt: salt,
+    passwordUpdatedAt: new Date(),
+  });
+  await db.insert(candidateProfiles).values({
+    userId,
+    displayName: name,
+  });
+  await db.insert(candidateAccounts).values({
+    userId,
+    mustResetPassword: true,
+    createdBy: session.user.id,
+  });
+
+  const { subject, subtitle, bodyHtml } = buildCandidateCredentialsEmail({
+    name,
+    email,
+    tempPassword,
+  });
+  await sendEmail({ to: email, subject, subtitle, bodyHtml });
+
+  await flashCandidateTempPassword(email, tempPassword);
+  redirect("/admin/candidates?created=1");
+}
+
+export async function rotateCandidatePassword(formData: FormData) {
+  await requireAdmin();
+  const db = await getD1Db();
+  const userId = str(formData.get("userId"));
+  if (!userId) return;
+
+  const u = await db
+    .select({
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      authProvider: users.authProvider,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (!u || u.role !== "candidate") return;
+
+  const tempPassword = generateTempPassword();
+  const { hash, salt } = await hashPassword(tempPassword);
+  await db
+    .update(users)
+    .set({
+      passwordHash: hash,
+      passwordSalt: salt,
+      passwordUpdatedAt: new Date(),
+      authProvider: "credentials",
+    })
+    .where(eq(users.id, userId));
+
+  const acct = await db
+    .select({ id: candidateAccounts.id })
+    .from(candidateAccounts)
+    .where(eq(candidateAccounts.userId, userId))
+    .get();
+  if (acct) {
+    await db
+      .update(candidateAccounts)
+      .set({ mustResetPassword: true, lastPasswordRotationAt: new Date() })
+      .where(eq(candidateAccounts.userId, userId));
+  } else {
+    await db.insert(candidateAccounts).values({
+      userId,
+      mustResetPassword: true,
+      lastPasswordRotationAt: new Date(),
+    });
+  }
+
+  const { subject, subtitle, bodyHtml } = buildCandidateCredentialsEmail({
+    name: u.name,
+    email: u.email,
+    tempPassword,
+  });
+  await sendEmail({ to: u.email, subject, subtitle, bodyHtml });
+
+  await flashCandidateTempPassword(u.email, tempPassword);
+  redirect(`/admin/candidates/${userId}?rotated=1`);
+}
+
+export async function setCandidateDisabled(formData: FormData) {
+  await requireAdmin();
+  const db = await getD1Db();
+  const userId = str(formData.get("userId"));
+  const disabled = str(formData.get("disabled")) === "1";
+  if (!userId) return;
+
+  const acct = await db
+    .select({ id: candidateAccounts.id })
+    .from(candidateAccounts)
+    .where(eq(candidateAccounts.userId, userId))
+    .get();
+  if (!acct) return;
+
+  await db
+    .update(candidateAccounts)
+    .set({ disabledAt: disabled ? new Date() : null })
+    .where(eq(candidateAccounts.userId, userId));
+  revalidatePath("/admin/candidates");
+  revalidatePath(`/admin/candidates/${userId}`);
+}
+
+export async function upsertIntroduction(formData: FormData) {
+  const session = await requireAdmin();
+  const db = await getD1Db();
+  const candidateProfileId = str(formData.get("candidateProfileId"));
+  const companyId = str(formData.get("companyId"));
+  const statusRaw = str(formData.get("status")) ?? "planned";
+  const statusNote = str(formData.get("statusNote"));
+  const noteInternal = str(formData.get("noteInternal"));
+  const userId = str(formData.get("userId"));
+
+  if (!candidateProfileId || !companyId) {
+    redirect(userId ? `/admin/candidates/${userId}?error=missing` : "/admin/candidates?error=missing");
+  }
+  if (!(INTRO_STATUSES as readonly string[]).includes(statusRaw)) {
+    redirect(`/admin/candidates/${userId}?error=missing`);
+  }
+  const status = statusRaw as IntroStatus;
+
+  const existing = await db
+    .select({ id: candidateIntroductions.id })
+    .from(candidateIntroductions)
+    .where(
+      and(
+        eq(candidateIntroductions.candidateProfileId, candidateProfileId),
+        eq(candidateIntroductions.companyId, companyId)
+      )
+    )
+    .get();
+
+  if (existing) {
+    await db
+      .update(candidateIntroductions)
+      .set({
+        status,
+        statusNote,
+        noteInternal,
+        updatedBy: session.user.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(candidateIntroductions.id, existing.id));
+  } else {
+    await db.insert(candidateIntroductions).values({
+      candidateProfileId,
+      companyId,
+      status,
+      statusNote,
+      noteInternal,
+      updatedBy: session.user.id,
+    });
+  }
+
+  revalidatePath("/me");
+  revalidatePath("/me/sharing");
+  if (userId) redirect(`/admin/candidates/${userId}?intro=1`);
+  revalidatePath("/admin/candidates");
 }

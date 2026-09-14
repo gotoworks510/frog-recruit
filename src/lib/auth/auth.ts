@@ -8,6 +8,7 @@ import {
   candidateProfiles,
   candidateInvites,
   employerAccounts,
+  candidateAccounts,
 } from "@/lib/db/schema";
 import { validateInviteToken } from "@/lib/invite/validate-token";
 import { verifyPassword } from "@/lib/auth/password";
@@ -38,9 +39,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    // Employer credential login (email + PBKDF2 password issued by an admin).
+    // Credential login (email + PBKDF2 password issued by an admin).
+    // Used by employers and by candidates created via admin account issuance.
     Credentials({
-      name: "Employer",
+      name: "Email",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
@@ -71,6 +73,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
               email: users.email,
               name: users.name,
               role: users.role,
+              status: users.status,
               passwordHash: users.passwordHash,
               passwordSalt: users.passwordSalt,
               companyId: users.employerCompanyId,
@@ -81,17 +84,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
 
           // Uniform failure to avoid account enumeration.
           if (!row || !row.passwordHash || !row.passwordSalt) return null;
+          if (row.role !== "employer" && row.role !== "candidate") return null;
+          if (row.status === "rejected") return null;
 
           const ok = await verifyPassword(password, row.passwordHash, row.passwordSalt);
           if (!ok) return null;
 
-          // Reject disabled employer accounts.
-          const acct = await db
-            .select({ disabledAt: employerAccounts.disabledAt })
-            .from(employerAccounts)
-            .where(eq(employerAccounts.userId, row.id))
-            .get();
-          if (acct?.disabledAt) return null;
+          if (row.role === "employer") {
+            const acct = await db
+              .select({ disabledAt: employerAccounts.disabledAt })
+              .from(employerAccounts)
+              .where(eq(employerAccounts.userId, row.id))
+              .get();
+            if (acct?.disabledAt) return null;
+          } else {
+            const acct = await db
+              .select({ disabledAt: candidateAccounts.disabledAt })
+              .from(candidateAccounts)
+              .where(eq(candidateAccounts.userId, row.id))
+              .get();
+            if (acct?.disabledAt) return null;
+          }
 
           await db
             .update(users)
@@ -102,11 +115,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
             id: row.id,
             email: row.email,
             name: row.name,
-            role: "employer",
+            role: row.role,
             companyId: row.companyId,
           };
         } catch (e) {
-          console.error("[auth] employer authorize error:", e);
+          console.error("[auth] credentials authorize error:", e);
           return null;
         }
       },
@@ -117,7 +130,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
   },
   callbacks: {
     async signIn({ user, account }) {
-      // Employer credential sign-in is already validated in authorize().
+      // Credential sign-in is already validated in authorize().
       if (account?.provider === "credentials") return true;
 
       if (!account || account.provider !== "google" || !user.email) {

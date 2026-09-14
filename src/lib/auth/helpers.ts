@@ -38,15 +38,10 @@ async function effectiveAuth(): Promise<Session | null> {
   return session;
 }
 
-/** Candidate area guard: candidate role, approved, consent given. */
+/** Candidate area guard: candidate role, approved, password reset done, consent given. */
 export async function requireCandidate(): Promise<Session> {
-  const session = await effectiveAuth();
-  if (!session?.user) redirect("/login");
-  if (session.user.role === "admin") redirect("/admin");
-  if (session.user.role === "employer") redirect("/portal");
-  if (session.user.status === "rejected") redirect("/rejected");
-  if (session.user.status !== "approved") redirect("/pending");
-  if (!session.user.privacyConsentedAt) redirect("/consent");
+  const { requireCandidateReady } = await import("@/lib/candidate/guard");
+  const { session } = await requireCandidateReady();
   return session;
 }
 

@@ -2,10 +2,12 @@ import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core"
 
 /**
  * Unified identity table for all three roles.
- * - admin / candidate  → authProvider "google"
- * - employer           → authProvider "credentials" (PBKDF2 password set by an admin)
+ * - admin                         → authProvider "google"
+ * - candidate (legacy invite)     → authProvider "google"
+ * - candidate (admin-issued)      → authProvider "credentials" + candidate_accounts
+ * - employer                      → authProvider "credentials" + employer_accounts
  *
- * passwordHash / passwordSalt are only populated for employers.
+ * passwordHash / passwordSalt are populated for credentials users (employer / candidate).
  */
 export const users = sqliteTable("users", {
   id: text("id")

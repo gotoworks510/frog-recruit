@@ -1,23 +1,44 @@
-import { wrapEmailHtml, primaryButton, baseUrl, escapeHtml } from "./templates";
+import {
+  primaryButton,
+  baseUrl,
+  escapeHtml,
+  credentialCard,
+  mintNote,
+} from "./templates";
+
+export type RecruitEmailContent = {
+  subject: string;
+  /** Shown under the brand lockup in the shared shell. */
+  subtitle: string;
+  /** Inner body HTML only — never a full document. */
+  bodyHtml: string;
+};
 
 /** Candidate invitation email — links to the invite-accept page. */
 export function buildCandidateInviteEmail(params: {
   name?: string | null;
   token: string;
-}): { subject: string; html: string } {
+}): RecruitEmailContent {
   const url = `${baseUrl()}/invite/${params.token}`;
   const greeting = params.name ? `Hi ${escapeHtml(params.name)},` : "Hello,";
-  const bodyHtml = `
-    <p>${greeting}</p>
-    <p>Frog would like to invite you to create your candidate profile for international career opportunities.
-    Click the button below to sign in with your Google account and add the details employers need.</p>
-    <p style="text-align:center;margin:28px 0;">${primaryButton(url, "Create your profile")}</p>
-    <p style="color:#718096;font-size:13px;">This invitation link is unique to you, so please note its expiration date.
-    If you weren't expecting this email, you can safely ignore it.</p>
-  `;
   return {
     subject: "You're invited to create your Frog Recruit candidate profile",
-    html: wrapEmailHtml({ subtitle: "Create your candidate profile", bodyHtml }),
+    subtitle: "Create your candidate profile",
+    bodyHtml: `
+    <p style="margin:0 0 14px;font-size:16px;">${greeting}</p>
+    <p style="margin:0 0 14px;">
+      Frog would like to invite you to create your candidate profile for
+      international career opportunities. Sign in with Google to add the details
+      hiring teams need — with context, consent, and care.
+    </p>
+    <p style="text-align:center;margin:28px 0;">${primaryButton(
+      url,
+      "Create your profile"
+    )}</p>
+    ${mintNote(
+      "This invitation link is unique to you. Please note its expiration date."
+    )}
+  `,
   };
 }
 
@@ -27,28 +48,69 @@ export function buildEmployerCredentialsEmail(params: {
   contactName?: string | null;
   email: string;
   tempPassword: string;
-}): { subject: string; html: string } {
+}): RecruitEmailContent {
   const url = `${baseUrl()}/employer/login`;
   const greeting = params.contactName
     ? `Dear ${escapeHtml(params.contactName)},`
     : `Dear ${escapeHtml(params.companyName)} team,`;
-  const bodyHtml = `
-    <p>${greeting}</p>
-    <p>We've created your Frog Recruit account for viewing candidates. Please log in with the credentials below.
-    You'll be asked to change your password the first time you sign in.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;border:1px solid #e4e7e4;border-radius:8px;">
-      <tr><td style="padding:10px 16px;color:#6b7280;font-size:13px;">Email</td>
-          <td style="padding:10px 16px;font-weight:600;">${escapeHtml(params.email)}</td></tr>
-      <tr><td style="padding:10px 16px;color:#6b7280;font-size:13px;border-top:1px solid #eef0ee;">Temporary password</td>
-          <td style="padding:10px 16px;font-weight:600;border-top:1px solid #eef0ee;font-family:monospace;">${escapeHtml(
-            params.tempPassword
-          )}</td></tr>
-    </table>
-    <p style="text-align:center;margin:28px 0;">${primaryButton(url, "Log in")}</p>
-    <p style="color:#718096;font-size:13px;">The candidate information shown here is confidential. Please do not share or redistribute it to third parties.</p>
-  `;
   return {
     subject: `Your Frog Recruit candidate access account (${params.companyName})`,
-    html: wrapEmailHtml({ subtitle: "Your candidate access account", bodyHtml }),
+    subtitle: "Your company portal access",
+    bodyHtml: `
+    <p style="margin:0 0 14px;font-size:16px;">${greeting}</p>
+    <p style="margin:0 0 14px;">
+      We&apos;ve created your Frog Recruit account for viewing candidates
+      introduced to <strong>${escapeHtml(params.companyName)}</strong>.
+      Log in with the credentials below — you&apos;ll be asked to change your
+      password the first time you sign in.
+    </p>
+    ${credentialCard([
+      { label: "Email", value: params.email },
+      { label: "Temporary password", value: params.tempPassword, mono: true },
+    ])}
+    <p style="text-align:center;margin:28px 0;">${primaryButton(
+      url,
+      "Log in to your portal"
+    )}</p>
+    ${mintNote(
+      "Candidate information is confidential. Please do not share or redistribute it."
+    )}
+  `,
+  };
+}
+
+/** Candidate account credentials — admin-issued email + temporary password. */
+export function buildCandidateCredentialsEmail(params: {
+  name?: string | null;
+  email: string;
+  tempPassword: string;
+}): RecruitEmailContent {
+  const url = `${baseUrl()}/login`;
+  const greeting = params.name ? `Hi ${escapeHtml(params.name)},` : "Hello,";
+  return {
+    subject: "Your Frog Recruit candidate account",
+    subtitle: "Your candidate account",
+    bodyHtml: `
+    <p style="margin:0 0 14px;font-size:16px;">${greeting}</p>
+    <p style="margin:0 0 14px;">
+      Frog has created your candidate account on Frog Recruit. You can review and
+      update your profile, and see which companies Frog is introducing you to.
+    </p>
+    <p style="margin:0 0 6px;color:#6b756f;font-size:13px;">
+      Please log in with the credentials below. You&apos;ll be asked to change your
+      password the first time you sign in.
+    </p>
+    ${credentialCard([
+      { label: "Email", value: params.email },
+      { label: "Temporary password", value: params.tempPassword, mono: true },
+    ])}
+    <p style="text-align:center;margin:28px 0;">${primaryButton(
+      url,
+      "Log in"
+    )}</p>
+    ${mintNote(
+      "If you weren&apos;t expecting this email, please contact your Frog representative."
+    )}
+  `,
   };
 }

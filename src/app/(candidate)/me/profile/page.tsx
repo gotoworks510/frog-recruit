@@ -2,13 +2,23 @@ import Link from "next/link";
 import { requireCandidate } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
 import { getCandidateByUserId } from "@/lib/candidate/profile";
-import { updateProfile } from "@/lib/candidate/actions";
+import { updateProfile, requestLinkedInRefresh } from "@/lib/candidate/actions";
 
-export default async function ProfileEditor() {
+export default async function ProfileEditor({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    linkedin?: string;
+    error?: string;
+  }>;
+}) {
   const session = await requireCandidate();
+  const { linkedin, error } = await searchParams;
   const db = await getD1Db();
   const candidate = await getCandidateByUserId(db, session.user.id);
   const p = candidate?.profile;
+  const linkedIn =
+    candidate?.links.find((l) => l.kind === "linkedin")?.url ?? "";
 
   return (
     <div className="space-y-8">
@@ -26,6 +36,65 @@ export default async function ProfileEditor() {
           Preview
         </Link>
       </div>
+
+      {linkedin === "requested" && (
+        <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+          Request received. Frog will review your LinkedIn and update your
+          profile here when ready.
+        </div>
+      )}
+      {linkedin === "saved_no_slack" && (
+        <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+          LinkedIn URL saved. Frog notification is temporarily unavailable —
+          please also message your Frog contact.
+        </div>
+      )}
+      {error === "linkedin_url" && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          Please enter a valid LinkedIn profile URL (linkedin.com/…).
+        </div>
+      )}
+      {error === "linkedin_rate" && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          You recently requested an update. Please try again later.
+        </div>
+      )}
+      {error === "linkedin_slack" && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          Could not notify Frog right now. Please try again or contact your
+          Frog representative.
+        </div>
+      )}
+
+      <form action={requestLinkedInRefresh} className="card space-y-4 p-6 sm:p-7">
+        <div>
+          <p className="label-caps">LinkedIn</p>
+          <h2 className="mt-2 font-heading text-xl font-semibold text-ink">
+            Request a profile refresh from LinkedIn
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Share your LinkedIn profile URL. Frog will review the latest
+            information and update your candidate profile manually — nothing is
+            overwritten automatically.
+          </p>
+        </div>
+        <Field
+          label="LinkedIn profile URL"
+          hint="e.g. https://www.linkedin.com/in/your-name"
+        >
+          <input
+            name="linkedinUrl"
+            type="url"
+            required
+            defaultValue={linkedIn}
+            placeholder="https://www.linkedin.com/in/..."
+            className="input-field"
+          />
+        </Field>
+        <button type="submit" className="btn-primary px-6 py-2.5">
+          Request update from LinkedIn
+        </button>
+      </form>
 
       <form action={updateProfile} className="space-y-10">
         <Section n="01" title="Your introduction">

@@ -98,6 +98,10 @@ export default async function SharingPage() {
 
       <div className="card p-6">
         <h2 className="font-semibold text-ink">Companies that can view you</h2>
+        <p className="mt-1 text-sm text-muted">
+          Access grants (who can open your profile). For introduction status, see
+          your home page.
+        </p>
         {grants.length === 0 ? (
           <p className="mt-2 text-sm text-muted">
             No companies have been granted access yet.

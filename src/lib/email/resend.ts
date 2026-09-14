@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { getCentralSuppressed } from "./central-suppression";
+import { wrapEmailHtml } from "./templates";
 
 let _resend: Resend | null = null;
 
@@ -17,7 +18,9 @@ function guardResend(client: Resend): Resend {
         return { data: null, error: null };
       }
     } else if (Array.isArray(p.to)) {
-      const filtered = p.to.filter((a) => !suppressed.has(String(a).trim().toLowerCase()));
+      const filtered = p.to.filter(
+        (a) => !suppressed.has(String(a).trim().toLowerCase())
+      );
       if (filtered.length === 0) {
         console.warn("[email] 中央連絡停止リストのため全宛先スキップ");
         return { data: null, error: null };
@@ -47,18 +50,32 @@ export interface SendResult {
   error?: string;
 }
 
+/**
+ * Send a Frog Recruit transactional email.
+ *
+ * ALWAYS applies the shared HTML shell (`wrapEmailHtml`). Callers pass only
+ * the inner body + subtitle — never a full HTML document or plain-only mail.
+ */
 export async function sendEmail(params: {
   to: string | string[];
   subject: string;
-  html: string;
+  /** Under the brand lockup in the shell. */
+  subtitle: string;
+  /** Inner body HTML only (paragraphs, cards, buttons). */
+  bodyHtml: string;
   replyTo?: string;
 }): Promise<SendResult> {
+  const html = wrapEmailHtml({
+    subtitle: params.subtitle,
+    bodyHtml: params.bodyHtml,
+  });
+
   try {
     const { data, error } = await getResend().emails.send({
       from: FROM_EMAIL,
       to: params.to,
       subject: params.subject,
-      html: params.html,
+      html,
       replyTo: params.replyTo,
     });
     if (error) {

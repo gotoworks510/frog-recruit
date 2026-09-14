@@ -10,7 +10,8 @@ interface BrandMarkProps {
 }
 
 /**
- * Recruit lockup: official Frog wordmark + "Recruit" + "BY FROG · VANCOUVER".
+ * Employer-facing lockup: official Frog wordmark + "for Employers" +
+ * "Talent introductions".
  */
 export function BrandMark({
   href = "/",
@@ -24,18 +25,18 @@ export function BrandMark({
       <Logo variant={variant} height={logoHeight} />
       <span className="flex flex-col leading-none">
         <span
-          className={`font-heading text-xl font-semibold tracking-tight ${
+          className={`font-heading text-lg font-semibold tracking-tight sm:text-xl ${
             onDark ? "text-white" : "text-brand"
           }`}
         >
-          Recruit
+          for Employers
         </span>
         <span
-          className={`mt-0.5 text-[10px] font-semibold tracking-[0.14em] uppercase ${
+          className={`mt-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase ${
             onDark ? "text-white/70" : "text-muted"
           }`}
         >
-          By Frog · Vancouver
+          Talent introductions
         </span>
       </span>
     </span>

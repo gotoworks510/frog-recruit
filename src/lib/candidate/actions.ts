@@ -10,12 +10,15 @@ import {
   candidateExperiences,
   candidateLinks,
   candidateConsents,
+  users,
 } from "@/lib/db/schema";
 import { getCandidateByUserId, computeCompleteness } from "@/lib/candidate/profile";
 import { putObject, deleteObject, resumeKey } from "@/lib/storage/r2";
 import { validateMagicBytes } from "@/lib/storage/magic-bytes";
 import { redirect } from "next/navigation";
 import type { Database } from "@/lib/db/client";
+import { rateLimit } from "@/lib/ratelimit/kv";
+import { notifySlack, escapeSlack } from "@/lib/slack/notify";
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024; // 10MB
 
@@ -284,4 +287,100 @@ export async function enableConsent() {
   });
   revalidatePath("/me/sharing");
   revalidatePath("/me");
+}
+
+function normalizeLinkedInUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let url: URL;
+  try {
+    url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.replace(/^www\./, "").toLowerCase();
+  if (host !== "linkedin.com" && !host.endsWith(".linkedin.com")) return null;
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
+}
+
+/**
+ * Candidate asks Frog to refresh their profile from LinkedIn.
+ * Saves/updates the LinkedIn link, then notifies Slack for manual review.
+ */
+export async function requestLinkedInRefresh(formData: FormData) {
+  const session = await requireCandidateWritable();
+  const db = await getD1Db();
+  const profileId = await ownProfileId(db, session.user.id);
+  if (!profileId) redirect("/me/profile?error=linkedin");
+
+  const linkedInUrl = normalizeLinkedInUrl(String(formData.get("linkedinUrl") ?? ""));
+  if (!linkedInUrl) redirect("/me/profile?error=linkedin_url");
+
+  const allowed = await rateLimit(`rl:li-refresh:${session.user.id}`, 3, 3600);
+  if (!allowed) redirect("/me/profile?error=linkedin_rate");
+
+  const existing = await db
+    .select({ id: candidateLinks.id })
+    .from(candidateLinks)
+    .where(
+      and(
+        eq(candidateLinks.candidateProfileId, profileId),
+        eq(candidateLinks.kind, "linkedin")
+      )
+    )
+    .get();
+
+  if (existing) {
+    await db
+      .update(candidateLinks)
+      .set({ url: linkedInUrl, label: "LinkedIn" })
+      .where(eq(candidateLinks.id, existing.id));
+  } else {
+    await db.insert(candidateLinks).values({
+      candidateProfileId: profileId,
+      kind: "linkedin",
+      url: linkedInUrl,
+      label: "LinkedIn",
+      sortOrder: 0,
+    });
+  }
+
+  const u = await db
+    .select({ email: users.email, name: users.name })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .get();
+  const profile = await db
+    .select({ displayName: candidateProfiles.displayName })
+    .from(candidateProfiles)
+    .where(eq(candidateProfiles.id, profileId))
+    .get();
+
+  const display =
+    profile?.displayName || u?.name || u?.email || "Candidate";
+  const base =
+    process.env.PUBLIC_BASE_URL ||
+    process.env.NEXTAUTH_URL ||
+    "https://recruit.frogagent.com";
+  const adminUrl = `${base.replace(/\/$/, "")}/admin/candidates/${session.user.id}`;
+
+  const text = [
+    ":linkedin: *LinkedIn profile update requested*",
+    `*Candidate:* ${escapeSlack(display)} (${escapeSlack(u?.email ?? "—")})`,
+    `*LinkedIn:* ${linkedInUrl}`,
+    `*Admin:* ${adminUrl}`,
+    "_Please review LinkedIn and update the candidate profile manually._",
+  ].join("\n");
+
+  const slack = await notifySlack(text);
+  if (slack.ok) {
+    revalidatePath("/me/profile");
+    revalidatePath("/me/links");
+    redirect("/me/profile?linkedin=requested");
+  }
+  if ("skipped" in slack && slack.skipped) {
+    redirect("/me/profile?linkedin=saved_no_slack");
+  }
+  redirect("/me/profile?error=linkedin_slack");
 }

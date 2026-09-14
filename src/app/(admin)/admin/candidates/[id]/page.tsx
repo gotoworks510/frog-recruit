@@ -13,6 +13,8 @@ import {
   candidateConsents,
   accessGrants,
   viewAudit,
+  candidateIntroductions,
+  candidateAccounts,
 } from "@/lib/db/schema";
 import { buildEmployerCandidateView } from "@/lib/employer/candidate-dto";
 import { CandidateView } from "@/components/candidate/CandidateView";
@@ -29,7 +31,14 @@ import {
   saveRecommendation,
   deleteRecommendation,
   revokeGrant,
+  upsertIntroduction,
+  rotateCandidatePassword,
+  setCandidateDisabled,
 } from "@/lib/admin/actions";
+import { INTRO_STATUSES } from "@/lib/db/schema/introductions";
+import { INTRO_STATUS_LABELS_JA } from "@/lib/introductions/labels";
+import { cookies } from "next/headers";
+import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
 
 const inputCls =
   "w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
@@ -51,12 +60,26 @@ export default async function AdminCandidateDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ preview?: string }>;
+  searchParams: Promise<{
+    preview?: string;
+    intro?: string;
+    rotated?: string;
+    error?: string;
+  }>;
 }) {
   await requireAdmin();
   const { id: userId } = await params;
-  const { preview } = await searchParams;
+  const { preview, intro, rotated, error } = await searchParams;
   const db = await getD1Db();
+
+  let flash: { email: string; pw: string } | null = null;
+  try {
+    const c = await cookies();
+    const raw = c.get("recruit_cand_pw")?.value;
+    if (raw) flash = JSON.parse(raw);
+  } catch {
+    flash = null;
+  }
 
   const user = await db
     .select({
@@ -64,6 +87,7 @@ export default async function AdminCandidateDetail({
       name: users.name,
       email: users.email,
       status: users.status,
+      authProvider: users.authProvider,
     })
     .from(users)
     .where(and(eq(users.id, userId), eq(users.role, "candidate")))
@@ -76,6 +100,31 @@ export default async function AdminCandidateDetail({
     .where(eq(candidateProfiles.userId, userId))
     .get();
   if (!profile) notFound();
+
+  const candAcct = await db
+    .select({
+      mustReset: candidateAccounts.mustResetPassword,
+      disabledAt: candidateAccounts.disabledAt,
+    })
+    .from(candidateAccounts)
+    .where(eq(candidateAccounts.userId, userId))
+    .get();
+
+  const intros = await db
+    .select({
+      id: candidateIntroductions.id,
+      status: candidateIntroductions.status,
+      statusNote: candidateIntroductions.statusNote,
+      noteInternal: candidateIntroductions.noteInternal,
+      updatedAt: candidateIntroductions.updatedAt,
+      companyId: candidateIntroductions.companyId,
+      companyName: companies.name,
+    })
+    .from(candidateIntroductions)
+    .innerJoin(companies, eq(candidateIntroductions.companyId, companies.id))
+    .where(eq(candidateIntroductions.candidateProfileId, profile.id))
+    .orderBy(desc(candidateIntroductions.updatedAt))
+    .all();
 
   const companyList = await db.select().from(companies).orderBy(companies.name).all();
   const jobList = await db.select().from(jobs).all();
@@ -200,10 +249,70 @@ export default async function AdminCandidateDetail({
           <a href="#access" className="text-muted hover:text-ink">
             権限・同意
           </a>
+          <a href="#intros" className="text-muted hover:text-ink">
+            紹介状況 ({intros.length})
+          </a>
           <a href="#preview" className="text-muted hover:text-ink">
             プレビュー
           </a>
         </nav>
+      </div>
+
+      {rotated && (
+        <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+          パスワードを再発行し、メール送信しました。
+        </div>
+      )}
+      {intro && (
+        <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+          紹介ステータスを保存しました。
+        </div>
+      )}
+      {error && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          操作を完了できませんでした。
+        </div>
+      )}
+      {flash && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">仮パスワード（この画面でのみ一度表示）</p>
+          <p className="mt-1">
+            {flash.email} / <code className="font-mono">{flash.pw}</code>
+          </p>
+        </div>
+      )}
+
+      <div className="card p-5">
+        <h2 className="font-semibold text-ink">ログインアカウント</h2>
+        <p className="mt-1 text-sm text-muted">
+          認証: {user.authProvider === "credentials" ? "メール＋パスワード" : "Google"}
+          {candAcct?.mustReset ? " · 初回パスワード変更待ち" : ""}
+          {candAcct?.disabledAt ? " · 無効化中" : ""}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <form action={rotateCandidatePassword}>
+            <input type="hidden" name="userId" value={user.id} />
+            <ConfirmSubmitButton
+              className="btn-outline px-3 py-1.5 text-sm"
+              message="仮パスワードを再発行してメール送信します。続行しますか？"
+            >
+              パスワード再発行
+            </ConfirmSubmitButton>
+          </form>
+          {candAcct && (
+            <form action={setCandidateDisabled}>
+              <input type="hidden" name="userId" value={user.id} />
+              <input
+                type="hidden"
+                name="disabled"
+                value={candAcct.disabledAt ? "0" : "1"}
+              />
+              <button type="submit" className="btn-outline px-3 py-1.5 text-sm">
+                {candAcct.disabledAt ? "有効化" : "ログイン無効化"}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
 
       {/* Sticky readiness */}
@@ -406,6 +515,125 @@ export default async function AdminCandidateDetail({
             </label>
             <RecommendationFields />
             <RecommendationControls />
+          </form>
+        </details>
+      </section>
+
+      {/* Introduction pipeline (candidate-facing status) */}
+      <section id="intros" className="card space-y-4 p-5">
+        <div>
+          <h2 className="font-semibold text-ink">紹介ステータス（候補者に表示）</h2>
+          <p className="mt-1 text-sm text-muted">
+            候補者の /me に会社名とステータスが出ます。内部メモは候補者には見えません。
+          </p>
+        </div>
+
+        {intros.length === 0 ? (
+          <p className="text-sm text-muted">まだ紹介レコードがありません。</p>
+        ) : (
+          <ul className="space-y-3 text-sm">
+            {intros.map((row) => (
+              <li key={row.id} className="rounded-md border border-line p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-ink">{row.companyName}</p>
+                    <p className="text-xs text-muted">
+                      {INTRO_STATUS_LABELS_JA[row.status]} · 更新{" "}
+                      {formatDateTime(row.updatedAt)}
+                    </p>
+                    {row.statusNote && (
+                      <p className="mt-1 text-muted">候補者向け: {row.statusNote}</p>
+                    )}
+                    {row.noteInternal && (
+                      <p className="mt-1 text-xs text-muted">内部: {row.noteInternal}</p>
+                    )}
+                  </div>
+                </div>
+                <form
+                  action={upsertIntroduction}
+                  className="mt-3 grid gap-2 sm:grid-cols-4"
+                >
+                  <input type="hidden" name="userId" value={user.id} />
+                  <input type="hidden" name="candidateProfileId" value={profile.id} />
+                  <input type="hidden" name="companyId" value={row.companyId} />
+                  <label className="text-xs sm:col-span-1">
+                    <span className="mb-1 block text-muted">ステータス</span>
+                    <select
+                      name="status"
+                      defaultValue={row.status}
+                      className={inputCls}
+                    >
+                      {INTRO_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {INTRO_STATUS_LABELS_JA[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs sm:col-span-1">
+                    <span className="mb-1 block text-muted">候補者向けメモ</span>
+                    <input
+                      name="statusNote"
+                      defaultValue={row.statusNote ?? ""}
+                      className={inputCls}
+                    />
+                  </label>
+                  <label className="text-xs sm:col-span-1">
+                    <span className="mb-1 block text-muted">内部メモ</span>
+                    <input
+                      name="noteInternal"
+                      defaultValue={row.noteInternal ?? ""}
+                      className={inputCls}
+                    />
+                  </label>
+                  <div className="flex items-end">
+                    <button type="submit" className="btn-primary px-3 py-2 text-sm">
+                      更新
+                    </button>
+                  </div>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <details className="rounded-md border border-dashed border-line p-3">
+          <summary className="cursor-pointer text-sm font-medium text-ink">
+            企業を追加して紹介を開始
+          </summary>
+          <form action={upsertIntroduction} className="mt-3 grid gap-2 sm:grid-cols-4">
+            <input type="hidden" name="userId" value={user.id} />
+            <input type="hidden" name="candidateProfileId" value={profile.id} />
+            <label className="text-xs sm:col-span-1">
+              <span className="mb-1 block text-muted">企業</span>
+              <select name="companyId" required className={inputCls}>
+                <option value="">選択…</option>
+                {companyList.map((co) => (
+                  <option key={co.id} value={co.id}>
+                    {co.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs sm:col-span-1">
+              <span className="mb-1 block text-muted">ステータス</span>
+              <select name="status" defaultValue="planned" className={inputCls}>
+                {INTRO_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {INTRO_STATUS_LABELS_JA[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs sm:col-span-1">
+              <span className="mb-1 block text-muted">候補者向けメモ</span>
+              <input name="statusNote" className={inputCls} />
+            </label>
+            <div className="flex items-end">
+              <button type="submit" className="btn-primary px-3 py-2 text-sm">
+                追加
+              </button>
+            </div>
           </form>
         </details>
       </section>

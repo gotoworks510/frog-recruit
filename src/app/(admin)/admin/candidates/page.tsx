@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/db/schema";
 import { WORK_AUTH_LABELS } from "@/lib/candidate/profile";
 import { INTEREST_LABELS_JA, type InterestLevel } from "@/lib/employer/feedback";
+import { createCandidateAccount } from "@/lib/admin/actions";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "承認待ち",
@@ -20,10 +22,13 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const ERRORS: Record<string, string> = {
-  missing: "候補者IDが指定されていません。",
+  missing: "必要な項目が不足しています。",
   notfound: "対象の候補者が見つかりませんでした（開発DBにいない可能性があります）。",
   notapproved: "承認済みの候補者のみプレビューできます。",
   config: "プレビュー用の署名鍵（NEXTAUTH_SECRET）を確認してください。",
+  exists: "このメールアドレスは既に候補者として登録されています。",
+  email_taken:
+    "このメールアドレスは別の種類のアカウント（企業または管理者）で使用されています。",
 };
 
 type FilterKey =
@@ -39,11 +44,26 @@ type FilterKey =
 export default async function AdminCandidates({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; status?: string; q?: string; filter?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    status?: string;
+    q?: string;
+    filter?: string;
+    created?: string;
+  }>;
 }) {
   await requireAdmin();
-  const { error, status, q, filter } = await searchParams;
+  const { error, status, q, filter, created } = await searchParams;
   const db = await getD1Db();
+
+  let flash: { email: string; pw: string } | null = null;
+  try {
+    const c = await cookies();
+    const raw = c.get("recruit_cand_pw")?.value;
+    if (raw) flash = JSON.parse(raw);
+  } catch {
+    flash = null;
+  }
 
   const rows = await db
     .select({
@@ -230,7 +250,7 @@ export default async function AdminCandidates({
         <div>
           <h1 className="text-2xl font-bold text-ink">候補者</h1>
           <p className="mt-1 text-sm text-muted">
-            紹介の準備状況（同意・推薦・権限・FB）を一覧で確認できます。行をクリックして詳細へ。
+            アカウント発行・紹介の準備状況（同意・推薦・権限・FB）を一覧で確認できます。
           </p>
         </div>
         <form className="flex gap-2">
@@ -249,9 +269,55 @@ export default async function AdminCandidates({
         </form>
       </div>
 
+      {created && (
+        <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+          候補者アカウントを発行し、ログイン情報をメール送信しました。
+        </div>
+      )}
+      {flash && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">仮パスワード（この画面でのみ一度表示）</p>
+          <p className="mt-1">
+            {flash.email} / <code className="font-mono">{flash.pw}</code>
+          </p>
+        </div>
+      )}
+
+      <div className="card p-5">
+        <h2 className="font-semibold text-ink">候補者アカウントを発行</h2>
+        <p className="mt-1 text-sm text-muted">
+          メール＋仮パスワードを発行して本人に送ります。本人は /login
+          からログインし、プロフィール確認と紹介ステータスを見られます。
+        </p>
+        <form action={createCandidateAccount} className="mt-4 grid gap-3 sm:grid-cols-3">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink">氏名</span>
+            <input
+              name="name"
+              required
+              className="w-full rounded-md border border-line px-3 py-2"
+            />
+          </label>
+          <label className="block text-sm sm:col-span-2">
+            <span className="mb-1 block font-medium text-ink">メール</span>
+            <input
+              name="email"
+              type="email"
+              required
+              className="w-full rounded-md border border-line px-3 py-2"
+            />
+          </label>
+          <div className="sm:col-span-3">
+            <button type="submit" className="btn-primary px-4 py-2 text-sm">
+              発行してメール送信
+            </button>
+          </div>
+        </form>
+      </div>
+
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-          {ERRORS[error] ?? "プレビューを開始できませんでした。"}
+          {ERRORS[error] ?? "操作を完了できませんでした。"}
         </div>
       )}
 

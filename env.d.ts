@@ -13,6 +13,12 @@ declare global {
     ADMIN_EMAILS?: string;
     PUBLIC_BASE_URL?: string;
     RECRUIT_FROM_EMAIL?: string;
+    JOB_INBOX_ENABLED?: string;
+    JOB_INBOX_TOKEN?: string;
+    SLACK_BOT_TOKEN?: string;
+    /** Prefer recruit-specific channel; falls back to SLACK_CHANNEL_ID. */
+    SLACK_RECRUIT_CHANNEL_ID?: string;
+    SLACK_CHANNEL_ID?: string;
   }
 }
 

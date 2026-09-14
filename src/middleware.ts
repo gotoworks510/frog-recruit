@@ -26,8 +26,19 @@ const SECURITY_HEADERS = {
   ].join("; "),
 } as const;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function middleware(_request: NextRequest) {
+const LEGACY_HOST = "recruit.frog-school.com";
+const PRIMARY_ORIGIN = "https://recruit.frogagent.com";
+
+export function middleware(request: NextRequest) {
+  const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
+  if (host === LEGACY_HOST) {
+    const dest = new URL(
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+      PRIMARY_ORIGIN,
+    );
+    return NextResponse.redirect(dest, 308);
+  }
+
   const response = NextResponse.next();
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(key, value);

@@ -1,8 +1,23 @@
 import Link from "next/link";
-import { signIn, auth } from "@/lib/auth/auth";
+import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
+import { signIn, auth } from "@/lib/auth/auth";
 import { roleHome } from "@/lib/auth/helpers";
 import { AuthSplitShell } from "@/components/auth/AuthSplitShell";
+
+async function candidateLogin(formData: FormData) {
+  "use server";
+  const email = String(formData.get("email") ?? "");
+  const password = String(formData.get("password") ?? "");
+  try {
+    await signIn("credentials", { email, password, redirectTo: "/me" });
+  } catch (e) {
+    if (e instanceof AuthError) {
+      redirect("/login?error=credentials");
+    }
+    throw e;
+  }
+}
 
 export default async function LoginPage({
   searchParams,
@@ -24,7 +39,7 @@ export default async function LoginPage({
           With people in your corner.
         </>
       }
-      body="A place to prepare your profile and see what hiring companies will see."
+      body="Review your profile, see which companies Frog is introducing you to, and keep your story current."
       footerLines={[
         "About 12 years of supporting careers abroad.",
         "Rooted in Vancouver's Frog community.",
@@ -35,18 +50,67 @@ export default async function LoginPage({
         Candidate login
       </h2>
       <p className="mt-3 text-sm text-muted">
-        Use the Google account that received your invitation from Frog.
+        Use the email and password Frog sent you. Google sign-in remains available
+        for invited Google accounts.
       </p>
 
       {error === "AccessDenied" && (
         <div className="mt-5 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          This account doesn&apos;t have an invitation. Please check with your
-          Frog contact.
+          This account doesn&apos;t have an invitation. Please check with your Frog
+          contact.
+        </div>
+      )}
+      {error === "credentials" && (
+        <div className="mt-5 rounded-md bg-red-50 p-3 text-sm text-red-700">
+          The email address or password is incorrect.
         </div>
       )}
 
+      <form action={candidateLogin} className="mt-8 space-y-4">
+        <div>
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-ink">
+            Email address
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            className="input-field py-2.5"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="password"
+            className="mb-1.5 block text-sm font-medium text-ink"
+          >
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            className="input-field py-2.5"
+          />
+        </div>
+        <button type="submit" className="btn-primary w-full px-6 py-3.5 text-base">
+          Log in
+        </button>
+      </form>
+
+      <div className="relative my-8">
+        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+          <div className="w-full border-t border-line" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-paper px-3 text-muted">or</span>
+        </div>
+      </div>
+
       <form
-        className="mt-8"
         action={async () => {
           "use server";
           await signIn("google", { redirectTo: "/me" });
@@ -62,7 +126,7 @@ export default async function LoginPage({
       </form>
 
       <p className="mt-5 text-xs leading-relaxed text-muted">
-        Access is by invitation. If you need help, contact your Frog
+        Access is provided by Frog. If you need help, contact your Frog
         representative.
       </p>
 

@@ -3,6 +3,8 @@ export * from "./candidates";
 export * from "./companies";
 export * from "./recommendations";
 export * from "./employers";
+export * from "./candidate-accounts";
+export * from "./introductions";
 export * from "./access";
 export * from "./audit";
 export * from "./invites";
