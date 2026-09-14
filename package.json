@@ -18,7 +18,9 @@
     "db:schema:remote": "wrangler d1 execute frog-recruit-db --remote --file=scripts/migrations/0001_init.sql",
     "db:seed:remote": "wrangler d1 execute frog-recruit-db --remote --file=scripts/seed.sql",
     "db:migrate:remote": "wrangler d1 execute frog-recruit-db --remote --file",
-    "db:exec:remote": "wrangler d1 execute frog-recruit-db --remote --command"
+    "db:exec:remote": "wrangler d1 execute frog-recruit-db --remote --command",
+    "db:job-inbox:local": "wrangler d1 execute frog-recruit-db --local --file=scripts/migrations/0005_job_leads.sql",
+    "db:job-inbox:remote": "wrangler d1 execute frog-recruit-db --remote --file=scripts/migrations/0005_job_leads.sql"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.0.0",

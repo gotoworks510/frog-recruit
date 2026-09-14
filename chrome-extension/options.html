@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Frog Job Capture — Options</title>
+    <style>
+      body {
+        font: 14px/1.45 system-ui, sans-serif;
+        max-width: 520px;
+        margin: 32px auto;
+        padding: 0 16px;
+        color: #14261c;
+      }
+      label {
+        display: block;
+        margin-top: 16px;
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        margin-top: 6px;
+        padding: 8px 10px;
+        border: 1px solid #d5ddd8;
+        border-radius: 8px;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 20px;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 8px;
+        background: #1f7a4c;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #msg {
+        margin-top: 12px;
+        color: #5b6b62;
+      }
+      code {
+        background: #eef3f0;
+        padding: 1px 4px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Frog Job Capture</h1>
+    <p>
+      Points at the local frog-recruit Job Inbox API. Set the same token as
+      <code>JOB_INBOX_TOKEN</code> in <code>.env.local</code>.
+    </p>
+    <label>
+      API base URL
+      <input id="apiBase" type="url" placeholder="http://localhost:3005" />
+    </label>
+    <label>
+      JOB_INBOX_TOKEN
+      <input id="token" type="password" autocomplete="off" />
+    </label>
+    <button id="save" type="button">Save</button>
+    <div id="msg"></div>
+    <script src="options.js"></script>
+  </body>
+</html>

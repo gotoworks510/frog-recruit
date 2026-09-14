@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Frog Recruit — Job Capture",
+  "description": "Save LinkedIn / Indeed / Glassdoor job posts into Frog Recruit Job Inbox (local/dev).",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Save job to Frog Recruit",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "http://localhost:3005/*",
+    "https://www.linkedin.com/*",
+    "https://linkedin.com/*",
+    "https://www.indeed.com/*",
+    "https://ca.indeed.com/*",
+    "https://www.glassdoor.com/*",
+    "https://www.glassdoor.ca/*"
+  ]
+}

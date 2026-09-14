@@ -7,6 +7,7 @@ const NAV = [
   { href: "/admin", label: "ダッシュボード" },
   { href: "/admin/candidates", label: "候補者" },
   { href: "/admin/invites", label: "招待" },
+  { href: "/admin/job-inbox", label: "Job Inbox" },
   { href: "/admin/companies", label: "企業・求人" },
   { href: "/admin/employers", label: "企業アカウント" },
   { href: "/admin/grants", label: "閲覧権限" },
