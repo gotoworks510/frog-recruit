@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
 import { jobLeads } from "@/lib/db/schema";
 import { isJobInboxEnabled } from "@/lib/job-inbox/config";
-import { convertJobLead, setJobLeadStatus } from "@/lib/job-inbox/actions";
+import { convertJobLead, deleteJobLead, setJobLeadStatus } from "@/lib/job-inbox/actions";
+import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
 
 const inputCls =
   "w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
@@ -85,6 +86,15 @@ export default async function JobLeadDetailPage({
             </button>
           </form>
         )}
+        <form action={deleteJobLead}>
+          <input type="hidden" name="id" value={lead.id} />
+          <ConfirmSubmitButton
+            className="rounded-md border border-danger/30 px-3 py-1.5 text-xs text-danger hover:bg-red-50"
+            message={`「${lead.titleRaw || lead.sourceUrl}」をInboxから削除します。よろしいですか？`}
+          >
+            削除
+          </ConfirmSubmitButton>
+        </form>
       </div>
 
       <div className="card space-y-3 p-6 text-sm">

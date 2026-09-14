@@ -4,7 +4,8 @@ import { requireAdmin } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
 import { jobLeads } from "@/lib/db/schema";
 import { isJobInboxEnabled } from "@/lib/job-inbox/config";
-import { createManualJobLead } from "@/lib/job-inbox/actions";
+import { createManualJobLead, deleteJobLead } from "@/lib/job-inbox/actions";
+import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
 
 const inputCls =
   "w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
@@ -20,10 +21,10 @@ const STATUS_JA: Record<string, string> = {
 export default async function JobInboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; status?: string }>;
+  searchParams: Promise<{ error?: string; status?: string; deleted?: string }>;
 }) {
   await requireAdmin();
-  const { error, status: statusFilter } = await searchParams;
+  const { error, status: statusFilter, deleted } = await searchParams;
   const enabled = isJobInboxEnabled();
 
   if (!enabled) {
@@ -79,6 +80,11 @@ export default async function JobInboxPage({
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
           入力が不足しています。
+        </div>
+      )}
+      {deleted && (
+        <div className="rounded-md bg-accent-soft p-3 text-sm text-frog-dark">
+          リードを削除しました。
         </div>
       )}
 
@@ -139,12 +145,23 @@ export default async function JobInboxPage({
                 <td className="px-4 py-3 text-xs text-muted">{r.source}</td>
                 <td className="px-4 py-3 text-xs">{STATUS_JA[r.status] ?? r.status}</td>
                 <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/admin/job-inbox/${r.id}`}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    詳細
-                  </Link>
+                  <div className="flex items-center justify-end gap-3">
+                    <Link
+                      href={`/admin/job-inbox/${r.id}`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      詳細
+                    </Link>
+                    <form action={deleteJobLead}>
+                      <input type="hidden" name="id" value={r.id} />
+                      <ConfirmSubmitButton
+                        className="text-xs text-danger hover:underline"
+                        message={`「${r.titleRaw || r.sourceUrl}」をInboxから削除します。よろしいですか？`}
+                      >
+                        削除
+                      </ConfirmSubmitButton>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}

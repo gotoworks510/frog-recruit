@@ -10,6 +10,85 @@ function extractJobFromPage() {
   const host = location.hostname.toLowerCase();
   const text = (el) => (el?.textContent || "").replace(/\s+/g, " ").trim();
   const meta = (sel) => document.querySelector(sel)?.getAttribute("content") || null;
+  const firstText = (selectors) => {
+    for (const sel of selectors) {
+      const t = text(document.querySelector(sel));
+      if (t) return t;
+    }
+    return null;
+  };
+  const stripHtml = (html) => {
+    if (!html) return null;
+    const d = document.createElement("div");
+    d.innerHTML = html;
+    return (d.textContent || "").replace(/\s+/g, " ").trim() || null;
+  };
+
+  /** LinkedIn (and others) often embed schema.org JobPosting JSON-LD. */
+  const fromJsonLd = () => {
+    const out = {
+      title: null,
+      companyName: null,
+      locationText: null,
+      description: null,
+      salary: null,
+    };
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const s of scripts) {
+      let data;
+      try {
+        data = JSON.parse(s.textContent || "");
+      } catch {
+        continue;
+      }
+      const nodes = Array.isArray(data)
+        ? data
+        : data?.["@graph"]
+          ? data["@graph"]
+          : [data];
+      for (const node of nodes) {
+        if (!node || typeof node !== "object") continue;
+        const typ = node["@type"];
+        const isJob =
+          typ === "JobPosting" ||
+          (Array.isArray(typ) && typ.includes("JobPosting"));
+        if (!isJob) continue;
+        out.title = node.title || out.title;
+        out.companyName =
+          node.hiringOrganization?.name ||
+          (typeof node.hiringOrganization === "string"
+            ? node.hiringOrganization
+            : null) ||
+          out.companyName;
+        out.description =
+          stripHtml(node.description) || out.description;
+        const loc = node.jobLocation;
+        const locs = Array.isArray(loc) ? loc : loc ? [loc] : [];
+        const parts = [];
+        for (const L of locs) {
+          const addr = L?.address || L;
+          if (!addr || typeof addr !== "object") continue;
+          const bit = [addr.addressLocality, addr.addressRegion, addr.addressCountry]
+            .filter(Boolean)
+            .join(", ");
+          if (bit) parts.push(bit);
+        }
+        if (parts.length) out.locationText = parts.join(" · ");
+        const sal = node.baseSalary;
+        if (sal && typeof sal === "object") {
+          const val = sal.value;
+          const min = val?.minValue ?? val?.value ?? sal.minValue;
+          const max = val?.maxValue ?? sal.maxValue;
+          const cur = sal.currency || val?.currency || "";
+          if (min || max) {
+            out.salary = [min, max].filter((x) => x != null).join(" – ") +
+              (cur ? ` ${cur}` : "");
+          }
+        }
+      }
+    }
+    return out;
+  };
 
   let source = "other";
   if (host.includes("linkedin.com")) source = "linkedin";
@@ -24,7 +103,8 @@ function extractJobFromPage() {
   let externalId = null;
   let sourceUrl = href;
 
-  // LinkedIn search-results URLs carry the selected job in currentJobId.
+  const ld = fromJsonLd();
+
   if (source === "linkedin") {
     try {
       const u = new URL(href);
@@ -40,77 +120,131 @@ function extractJobFromPage() {
       /* ignore */
     }
 
+    // Prefer JSON-LD, then logged-in unified UI, then public/guest topcard.
     title =
-      text(document.querySelector(".job-details-jobs-unified-top-card__job-title")) ||
-      text(document.querySelector(".jobs-unified-top-card__job-title")) ||
-      text(document.querySelector("h1")) ||
+      ld.title ||
+      firstText([
+        ".job-details-jobs-unified-top-card__job-title a",
+        ".job-details-jobs-unified-top-card__job-title",
+        ".jobs-unified-top-card__job-title a",
+        ".jobs-unified-top-card__job-title",
+        ".top-card-layout__title",
+        "h1.top-card-layout__title",
+        ".topcard__title",
+        "h1",
+      ]) ||
       meta('meta[property="og:title"]');
+
+    // og:title is often "Role | Company | LinkedIn"
+    if (title && /\|\s*LinkedIn\s*$/i.test(title)) {
+      const parts = title.split("|").map((p) => p.trim());
+      if (parts.length >= 2) {
+        title = parts[0] || title;
+        if (!companyName && parts[1] && !/^LinkedIn$/i.test(parts[1])) {
+          companyName = parts[1];
+        }
+      }
+    }
+
     companyName =
-      text(
-        document.querySelector(
-          ".job-details-jobs-unified-top-card__company-name a, .job-details-jobs-unified-top-card__company-name, .jobs-unified-top-card__company-name a, .jobs-unified-top-card__company-name"
-        )
-      ) || null;
+      companyName ||
+      ld.companyName ||
+      firstText([
+        ".job-details-jobs-unified-top-card__company-name a",
+        ".job-details-jobs-unified-top-card__company-name",
+        ".jobs-unified-top-card__company-name a",
+        ".jobs-unified-top-card__company-name",
+        ".topcard__org-name-link",
+        ".top-card-layout__card a.topcard__org-name-link",
+        ".job-details-jobs-unified-top-card__primary-description-container a",
+      ]);
+
     locationText =
-      text(
-        document.querySelector(
-          ".job-details-jobs-unified-top-card__tertiary-description-container, .job-details-jobs-unified-top-card__bullet, .jobs-unified-top-card__bullet"
-        )
-      ) || null;
+      ld.locationText ||
+      firstText([
+        ".job-details-jobs-unified-top-card__tertiary-description-container",
+        ".job-details-jobs-unified-top-card__bullet",
+        ".jobs-unified-top-card__bullet",
+        ".topcard__flavor--bullet",
+        ".topcard__flavor",
+        ".job-details-jobs-unified-top-card__primary-description-container",
+      ]);
+
+    // Prefer the about-the-job article; avoid "more jobs" grids.
     const descRoot =
+      document.querySelector(".show-more-less-html__markup") ||
+      document.querySelector(".description__text") ||
       document.querySelector("#job-details") ||
       document.querySelector(".jobs-description__content") ||
       document.querySelector(".jobs-box__html-content") ||
-      document.querySelector(".jobs-description-content__text");
-    description = text(descRoot) || null;
+      document.querySelector(".jobs-description-content__text") ||
+      document.querySelector(".core-section-container__content");
+    description = ld.description || text(descRoot) || null;
+    salary = ld.salary || salary;
   } else if (source === "indeed") {
     title =
-      text(document.querySelector("[data-testid='jobsearch-JobInfoHeader-title']")) ||
-      text(document.querySelector("h1")) ||
+      ld.title ||
+      firstText([
+        "[data-testid='jobsearch-JobInfoHeader-title']",
+        "h1",
+      ]) ||
       meta('meta[property="og:title"]');
     companyName =
-      text(
-        document.querySelector(
-          "[data-testid='inlineHeader-companyName'] a, [data-company-name='true'], .jobsearch-InlineCompanyRating a"
-        )
-      ) || null;
+      ld.companyName ||
+      firstText([
+        "[data-testid='inlineHeader-companyName'] a",
+        "[data-company-name='true']",
+        ".jobsearch-InlineCompanyRating a",
+      ]);
     locationText =
-      text(
-        document.querySelector(
-          "[data-testid='inlineHeader-companyLocation'], [data-testid='job-location']"
-        )
-      ) || null;
+      ld.locationText ||
+      firstText([
+        "[data-testid='inlineHeader-companyLocation']",
+        "[data-testid='job-location']",
+      ]);
     description =
+      ld.description ||
       text(document.querySelector("#jobDescriptionText")) ||
       text(document.querySelector(".jobsearch-JobComponent-description")) ||
       null;
     salary =
-      text(document.querySelector("#salaryInfoAndJobType")) ||
-      text(document.querySelector("[data-testid='attribute_snippet_testid']")) ||
-      null;
+      ld.salary ||
+      firstText([
+        "#salaryInfoAndJobType",
+        "[data-testid='attribute_snippet_testid']",
+      ]);
     const m = href.match(/[?&]jk=([a-z0-9]+)/i) || href.match(/\/viewjob\?jk=([a-z0-9]+)/i);
     if (m) externalId = m[1];
   } else if (source === "glassdoor") {
     title =
-      text(document.querySelector("[data-test='job-title']")) ||
-      text(document.querySelector("h1")) ||
+      ld.title ||
+      firstText(["[data-test='job-title']", "h1"]) ||
       meta('meta[property="og:title"]');
     companyName =
-      text(document.querySelector("[data-test='employer-name']")) ||
-      text(document.querySelector("[data-test='employerName']")) ||
-      null;
-    locationText = text(document.querySelector("[data-test='location']")) || null;
+      ld.companyName ||
+      firstText(["[data-test='employer-name']", "[data-test='employerName']"]);
+    locationText = ld.locationText || firstText(["[data-test='location']"]);
     description =
+      ld.description ||
       text(document.querySelector("[data-test='description']")) ||
       text(document.querySelector(".JobDetails_jobDescription__")) ||
       null;
+    salary = ld.salary;
   } else {
-    title = text(document.querySelector("h1")) || meta('meta[property="og:title"]');
-    description = meta('meta[property="og:description"]');
+    title = ld.title || text(document.querySelector("h1")) || meta('meta[property="og:title"]');
+    companyName = ld.companyName;
+    locationText = ld.locationText;
+    description = ld.description || meta('meta[property="og:description"]');
+    salary = ld.salary;
   }
 
   if (description && description.length > 20000) {
     description = description.slice(0, 20000) + "…";
+  }
+
+  // Drop useless titles.
+  if (title && /^(linkedin|indeed|glassdoor)$/i.test(title.trim())) {
+    title = null;
   }
 
   return {
@@ -128,6 +262,7 @@ function extractJobFromPage() {
       userAgent: navigator.userAgent,
       titleDocument: document.title,
       pageUrl: href,
+      usedJsonLd: !!(ld.title || ld.description || ld.companyName),
     },
   };
 }
@@ -170,7 +305,6 @@ document.getElementById("save").addEventListener("click", async () => {
       console.warn("inject failed", injectErr);
     }
 
-    // Fallback: URL-only lead (still useful for Inbox triage).
     if (!payload) {
       let source = "other";
       let sourceUrl = tab.url.split("#")[0];
@@ -198,7 +332,7 @@ document.getElementById("save").addEventListener("click", async () => {
         source,
         externalId,
         companyName: null,
-        title: tab.title || null,
+        title: null,
         location: null,
         description: null,
         salary: null,
@@ -223,9 +357,13 @@ document.getElementById("save").addEventListener("click", async () => {
       return;
     }
 
-    status.textContent = data.duplicate
-      ? `Updated existing lead (score ${data.score}).\n${data.inboxUrl}`
-      : `Saved (score ${data.score}).\n${data.inboxUrl}`;
+    const bits = [
+      data.duplicate ? "Updated existing lead" : "Saved",
+      `score ${data.score}`,
+    ];
+    if (payload.title) bits.push(payload.title);
+    if (payload.companyName) bits.push(payload.companyName);
+    status.textContent = `${bits.join(" · ")}\n${data.inboxUrl}`;
   } catch (err) {
     status.textContent = String(err?.message || err);
   } finally {

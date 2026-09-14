@@ -160,3 +160,15 @@ export async function convertJobLead(formData: FormData) {
   revalidatePath("/admin/companies");
   redirect("/admin/companies");
 }
+
+export async function deleteJobLead(formData: FormData) {
+  await requireAdmin();
+  assertInboxEnabled();
+  const db = await getD1Db();
+  const id = str(formData.get("id"));
+  if (!id) redirect("/admin/job-inbox?error=missing");
+
+  await db.delete(jobLeads).where(eq(jobLeads.id, id));
+  revalidatePath("/admin/job-inbox");
+  redirect("/admin/job-inbox?deleted=1");
+}

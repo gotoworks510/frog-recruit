@@ -136,12 +136,20 @@ export async function POST(request: Request) {
   const now = new Date();
   const rawPayloadJson = body.raw != null ? JSON.stringify(body.raw) : null;
 
-  /** Prefer non-empty incoming fields; never wipe richer existing capture with blanks. */
+  /** Prefer non-empty incoming; treat our own stub text as empty so a real re-save can replace it. */
+  function isStub(value: string | null | undefined): boolean {
+    if (!value) return true;
+    return /open on LinkedIn to refresh|Captured from LinkedIn|Re-save from the job detail/i.test(
+      value
+    );
+  }
   function prefer(
     next: string | null,
     prev: string | null | undefined
   ): string | null {
-    return next && next.length > 0 ? next : prev ?? null;
+    if (next && next.length > 0) return next;
+    if (isStub(prev)) return null;
+    return prev ?? null;
   }
 
   if (existing) {
