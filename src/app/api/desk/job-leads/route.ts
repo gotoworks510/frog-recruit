@@ -116,26 +116,19 @@ export async function POST(request: Request) {
       ? body.source
       : detectSourceFromUrl(sourceUrl);
 
-  const titleRaw = body.title?.trim() || null;
-  const companyNameRaw = body.companyName?.trim() || null;
-  const locationRaw = body.location?.trim() || null;
-  const descriptionRaw = body.description?.trim() || null;
-  const salaryRaw = body.salary?.trim() || null;
-  const postedAtRaw = body.postedAt?.trim() || null;
-  const score = scoreJobLead({
-    title: titleRaw,
-    location: locationRaw,
-    description: descriptionRaw,
-    company: companyNameRaw,
-  });
+  const incoming = {
+    externalId: body.externalId?.trim() || null,
+    companyNameRaw: body.companyName?.trim() || null,
+    titleRaw: body.title?.trim() || null,
+    locationRaw: body.location?.trim() || null,
+    descriptionRaw: body.description?.trim() || null,
+    salaryRaw: body.salary?.trim() || null,
+    postedAtRaw: body.postedAt?.trim() || null,
+  };
 
   const db = await getD1Db();
   const existing = await db
-    .select({
-      id: jobLeads.id,
-      status: jobLeads.status,
-      titleRaw: jobLeads.titleRaw,
-    })
+    .select()
     .from(jobLeads)
     .where(eq(jobLeads.sourceUrl, sourceUrl))
     .get();
@@ -143,12 +136,37 @@ export async function POST(request: Request) {
   const now = new Date();
   const rawPayloadJson = body.raw != null ? JSON.stringify(body.raw) : null;
 
+  /** Prefer non-empty incoming fields; never wipe richer existing capture with blanks. */
+  function prefer(
+    next: string | null,
+    prev: string | null | undefined
+  ): string | null {
+    return next && next.length > 0 ? next : prev ?? null;
+  }
+
   if (existing) {
+    const titleRaw = prefer(incoming.titleRaw, existing.titleRaw);
+    const companyNameRaw = prefer(incoming.companyNameRaw, existing.companyNameRaw);
+    const locationRaw = prefer(incoming.locationRaw, existing.locationRaw);
+    const descriptionRaw = prefer(
+      incoming.descriptionRaw,
+      existing.descriptionRaw
+    );
+    const salaryRaw = prefer(incoming.salaryRaw, existing.salaryRaw);
+    const postedAtRaw = prefer(incoming.postedAtRaw, existing.postedAtRaw);
+    const externalId = prefer(incoming.externalId, existing.externalId);
+    const score = scoreJobLead({
+      title: titleRaw,
+      location: locationRaw,
+      description: descriptionRaw,
+      company: companyNameRaw,
+    });
+
     await db
       .update(jobLeads)
       .set({
         source,
-        externalId: body.externalId?.trim() || null,
+        externalId,
         companyNameRaw,
         titleRaw,
         locationRaw,
@@ -156,7 +174,7 @@ export async function POST(request: Request) {
         salaryRaw,
         postedAtRaw,
         score,
-        rawPayloadJson,
+        rawPayloadJson: rawPayloadJson ?? existing.rawPayloadJson,
         updatedAt: now,
         // Keep converted/rejected status; revive snoozed/new on re-capture.
         status:
@@ -178,6 +196,19 @@ export async function POST(request: Request) {
       { origin }
     );
   }
+
+  const titleRaw = incoming.titleRaw;
+  const companyNameRaw = incoming.companyNameRaw;
+  const locationRaw = incoming.locationRaw;
+  const descriptionRaw = incoming.descriptionRaw;
+  const salaryRaw = incoming.salaryRaw;
+  const postedAtRaw = incoming.postedAtRaw;
+  const score = scoreJobLead({
+    title: titleRaw,
+    location: locationRaw,
+    description: descriptionRaw,
+    company: companyNameRaw,
+  });
 
   const id = crypto.randomUUID();
   await db.insert(jobLeads).values({
