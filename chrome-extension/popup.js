@@ -22,23 +22,48 @@ async function extractJobFromPage() {
     return (d.textContent || "").replace(/\s+/g, " ").trim() || null;
   };
 
+  /**
+   * Expand truncated JD only. Never click <a> / company links — that navigates
+   * away from the job detail page (the previous bug).
+   */
   const clickSeeMore = () => {
-    const nodes = Array.from(document.querySelectorAll("button, [role='button'], a"));
-    for (const b of nodes) {
-      const t = (b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
-      if (
-        t === "see more" ||
-        t === "show more" ||
-        t === "…see more" ||
-        t === "...see more" ||
-        t === "もっと見る" ||
-        t.endsWith(" see more")
-      ) {
-        try {
-          b.click();
-        } catch {
-          /* ignore */
-        }
+    const roots = [
+      document.querySelector("#job-details"),
+      document.querySelector(".jobs-description"),
+      document.querySelector(".jobs-description__content"),
+      document.querySelector(".jobs-box__html-content"),
+      document.querySelector(".show-more-less-html"),
+      document.querySelector(".description__text"),
+      document.querySelector(".jobs-description-content__text"),
+      document.querySelector("article.jobs-description__container"),
+    ].filter(Boolean);
+
+    /** @type {Element[]} */
+    const candidates = [];
+    // Only LinkedIn's known "expand truncated HTML" buttons — never generic
+    // "see more" links (those often go to the company page).
+    const selector =
+      "button.show-more-less-html__button, button.inline-show-more-text__button, button[aria-label*='more about the job' i], button[aria-label*='See more' i]";
+    if (roots.length) {
+      for (const root of roots) {
+        candidates.push(...root.querySelectorAll(selector));
+      }
+    } else {
+      candidates.push(...document.querySelectorAll(selector));
+    }
+
+    for (const el of candidates) {
+      if (el.tagName !== "BUTTON") continue;
+      if (el.closest("a[href]")) continue;
+      // Skip company / aside modules.
+      const inDanger = el.closest(
+        ".jobs-company, .job-details-how-you-match, .scaffold-layout__aside, [data-view-name='job-details-about-company']"
+      );
+      if (inDanger) continue;
+      try {
+        el.click();
+      } catch {
+        /* ignore */
       }
     }
   };
@@ -414,6 +439,7 @@ document.getElementById("save").addEventListener("click", async () => {
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !tab.url) throw new Error("No active tab");
+    const urlBefore = tab.url;
 
     let payload = null;
     try {
@@ -428,6 +454,21 @@ document.getElementById("save").addEventListener("click", async () => {
       }
     } catch (injectErr) {
       console.warn("inject failed", injectErr);
+    }
+
+    // If a bad click navigated away from the job, abort instead of saving garbage.
+    const [tabAfter] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const urlAfter = tabAfter?.url || "";
+    const stillOnJob =
+      /linkedin\.com\/jobs\//i.test(urlAfter) ||
+      /indeed\./i.test(urlAfter) ||
+      /glassdoor\./i.test(urlAfter);
+    if (urlAfter && urlAfter !== urlBefore && !stillOnJob) {
+      status.textContent =
+        "Capture aborted: the tab left the job page (likely a link click).\n" +
+        "Reload the job detail URL and try again after updating the extension.";
+      btn.disabled = false;
+      return;
     }
 
     if (!payload) {
