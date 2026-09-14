@@ -75,8 +75,8 @@ export async function GET(
 
   const meta = auditMetaFromRequest(request);
   await writeAudit(db, {
-    actorUserId: session.user.id,
-    actorRole: "employer",
+    actorUserId: session.user.viewAs?.adminId ?? session.user.id,
+    actorRole: session.user.viewAs ? "admin_view_as" : "employer",
     companyId: session.user.companyId,
     candidateProfileId: id,
     action: "download_resume",

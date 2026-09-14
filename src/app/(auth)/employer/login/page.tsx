@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn, auth } from "@/lib/auth/auth";
 import { roleHome } from "@/lib/auth/helpers";
-import { Logo } from "@/components/brand/Logo";
+import { AuthSplitShell } from "@/components/auth/AuthSplitShell";
 
 async function employerLogin(formData: FormData) {
   "use server";
@@ -28,66 +29,74 @@ export default async function EmployerLoginPage({
   const { error } = await searchParams;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
-      <div className="w-full max-w-md rounded-2xl bg-paper p-8 shadow-sm ring-1 ring-line">
-        <div className="mb-6 text-center">
-          <div className="mb-4 flex justify-center">
-            <Logo variant="green" height={40} />
-          </div>
-          <h1 className="text-2xl font-bold text-ink">Employer login</h1>
-          <p className="mt-2 text-sm text-muted">
-            Log in with the email address and password issued to you by Frog.
-          </p>
+    <AuthSplitShell
+      audienceLabel="For hiring teams"
+      headline={
+        <>
+          Meet the person.
+          <br />
+          Understand the perspective.
+        </>
+      }
+      body="Access the candidates introduced to your company, with Frog's recommendation and points to consider."
+      footerLines={[
+        "A private introduction portal. Built on about 12 years of overseas career support.",
+      ]}
+    >
+      <p className="label-caps">Your company portal</p>
+      <h2 className="mt-2 font-heading text-3xl font-semibold text-ink">
+        Employer login
+      </h2>
+      <p className="mt-3 text-sm text-muted">
+        Use the email address and password provided by Frog.
+      </p>
+
+      {error && (
+        <div className="mt-5 rounded-md bg-red-50 p-3 text-sm text-red-700">
+          The email address or password is incorrect.
         </div>
+      )}
 
-        {error && (
-          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-            The email address or password is incorrect.
-          </div>
-        )}
+      <form action={employerLogin} className="mt-8 space-y-4">
+        <div>
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-ink">
+            Email address
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            className="input-field py-2.5"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="password"
+            className="mb-1.5 block text-sm font-medium text-ink"
+          >
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            className="input-field py-2.5"
+          />
+        </div>
+        <button type="submit" className="btn-primary w-full px-6 py-3.5 text-base">
+          Log in
+        </button>
+      </form>
 
-        <form action={employerLogin} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-1 block text-sm font-medium text-ink"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <button type="submit" className="btn-primary w-full px-6 py-3">
-            Log in
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-xs text-muted">
-          Candidates can{" "}
-          <a href="/login" className="text-primary hover:underline">
-            log in here
-          </a>
-        </p>
-      </div>
-    </div>
+      <p className="mt-8 text-sm">
+        <Link href="/login" className="font-medium text-primary hover:underline">
+          Candidate? Sign in here →
+        </Link>
+      </p>
+    </AuthSplitShell>
   );
 }

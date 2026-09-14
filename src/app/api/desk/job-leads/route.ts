@@ -8,8 +8,10 @@ import {
 } from "@/lib/job-inbox/config";
 import { detectSourceFromUrl, scoreJobLead } from "@/lib/job-inbox/score";
 import {
+  cleanLocationRaw,
   enrichCaptureFromRaw,
   normalizeJobSourceUrl,
+  normalizeSalaryCurrency,
 } from "@/lib/job-inbox/enrich";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +60,8 @@ type CaptureBody = {
   description?: string | null;
   salary?: string | null;
   postedAt?: string | null;
+  /** CAD (Canada) or USD (US) — operator pick at capture. */
+  salaryCurrency?: string | null;
   raw?: unknown;
 };
 
@@ -142,6 +146,7 @@ export async function POST(request: Request) {
     descriptionRaw: enriched.descriptionRaw,
     salaryRaw: body.salary?.trim() || null,
     postedAtRaw: body.postedAt?.trim() || null,
+    salaryCurrency: normalizeSalaryCurrency(body.salaryCurrency),
   };
 
   const db = await getD1Db();
@@ -172,7 +177,9 @@ export async function POST(request: Request) {
   if (existing) {
     const titleRaw = prefer(incoming.titleRaw, existing.titleRaw);
     const companyNameRaw = prefer(incoming.companyNameRaw, existing.companyNameRaw);
-    const locationRaw = prefer(incoming.locationRaw, existing.locationRaw);
+    const locationRaw = cleanLocationRaw(
+      prefer(incoming.locationRaw, existing.locationRaw)
+    );
     const descriptionRaw = prefer(
       incoming.descriptionRaw,
       existing.descriptionRaw
@@ -197,6 +204,7 @@ export async function POST(request: Request) {
         locationRaw,
         descriptionRaw,
         salaryRaw,
+        salaryCurrency: incoming.salaryCurrency,
         postedAtRaw,
         score,
         rawPayloadJson: rawPayloadJson ?? existing.rawPayloadJson,
@@ -217,6 +225,7 @@ export async function POST(request: Request) {
         score,
         title: titleRaw,
         companyName: companyNameRaw,
+        salaryCurrency: incoming.salaryCurrency,
         inboxUrl: `http://localhost:3005/admin/job-inbox/${existing.id}`,
       },
       { origin }
@@ -241,6 +250,7 @@ export async function POST(request: Request) {
     locationRaw: incoming.locationRaw,
     descriptionRaw: incoming.descriptionRaw,
     salaryRaw: incoming.salaryRaw,
+    salaryCurrency: incoming.salaryCurrency,
     postedAtRaw: incoming.postedAtRaw,
     status: "new",
     score,
@@ -259,6 +269,7 @@ export async function POST(request: Request) {
       score,
       title: incoming.titleRaw,
       companyName: incoming.companyNameRaw,
+      salaryCurrency: incoming.salaryCurrency,
       inboxUrl: `http://localhost:3005/admin/job-inbox/${id}`,
     },
     { origin }

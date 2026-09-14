@@ -38,7 +38,7 @@ export default async function JobLeadDetailPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link href="/admin/job-inbox" className="text-sm text-primary hover:underline">
-            ← Job Inbox
+            ← 求人Inbox
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-ink">
             {lead.titleRaw || "(タイトル未取得)"}
@@ -109,6 +109,10 @@ export default async function JobLeadDetailPage({
           {lead.locationRaw || "—"}
         </p>
         <p>
+          <span className="text-muted">通貨: </span>
+          {lead.salaryCurrency || "CAD"}
+        </p>
+        <p>
           <span className="text-muted">給与（生）: </span>
           {lead.salaryRaw || "—"}
         </p>
@@ -118,7 +122,10 @@ export default async function JobLeadDetailPage({
           {lead.convertedJobId ? "（求人化済）" : ""}
         </p>
         <div>
-          <p className="mb-1 text-muted">説明</p>
+          <p className="mb-1 text-muted">説明（生データ・未整形）</p>
+          <p className="mb-2 text-xs text-muted">
+            拡張は取り込み専用です。改行は保持しますが、見出しや箇条書きの体裁は後でAI／手動整形する想定です。
+          </p>
           <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 text-xs text-ink">
             {lead.descriptionRaw || "（本文なし）"}
           </pre>
@@ -127,7 +134,7 @@ export default async function JobLeadDetailPage({
 
       {lead.convertedJobId ? (
         <div className="card p-6 text-sm">
-          既に求人化済みです。{" "}
+          既に求人化済みです（Inboxからは通常削除されます）。{" "}
           <Link href="/admin/companies" className="text-primary hover:underline">
             企業・求人へ
           </Link>
@@ -159,8 +166,16 @@ export default async function JobLeadDetailPage({
             name="location"
             defaultValue={lead.locationRaw ?? ""}
             placeholder="勤務地"
-            className={`${inputCls} sm:col-span-2`}
+            className={inputCls}
           />
+          <select
+            name="salaryCurrency"
+            defaultValue={lead.salaryCurrency === "USD" ? "USD" : "CAD"}
+            className={inputCls}
+          >
+            <option value="CAD">CAD（カナダ）</option>
+            <option value="USD">USD（米国）</option>
+          </select>
           <textarea
             name="description"
             defaultValue={lead.descriptionRaw ?? ""}

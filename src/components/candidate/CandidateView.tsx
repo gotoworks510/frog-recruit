@@ -7,6 +7,10 @@ interface CandidateViewProps {
   view: EmployerCandidateView;
   /** Audited resume route (employer) or self-view route. Omit to hide. */
   resumeHref?: string;
+  /** Preview banner context for candidate self-view. */
+  mode?: "employer" | "preview";
+  /** Shown in breadcrumb on employer detail (e.g. company name). */
+  companyName?: string | null;
 }
 
 function salary(v: EmployerCandidateView): string | null {
@@ -18,74 +22,158 @@ function salary(v: EmployerCandidateView): string | null {
   return `${range} ${v.salaryCurrency}`;
 }
 
-export function CandidateView({ view, resumeHref }: CandidateViewProps) {
+function plainExcerpt(md: string | null | undefined, max = 160): string | null {
+  if (!md) return null;
+  const plain = md
+    .replace(/[#>*_`\[\]()!-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return null;
+  return plain.length > max ? `${plain.slice(0, max).trim()}…` : plain;
+}
+
+export function CandidateView({
+  view,
+  resumeHref,
+  mode = "employer",
+  companyName,
+}: CandidateViewProps) {
   const sal = salary(view);
+  const firstName =
+    (view.displayName ?? "this candidate").trim().split(/\s+/)[0] ??
+    "this candidate";
+  const workAuth = view.workAuthStatus
+    ? WORK_AUTH_LABELS[view.workAuthStatus] ?? view.workAuthStatus
+    : null;
+
+  const stats: Array<{ label: string; value: string }> = [];
+  if (view.yearsExperience != null) {
+    stats.push({
+      label: "Experience",
+      value: `${view.yearsExperience} years`,
+    });
+  }
+  if (workAuth) {
+    stats.push({ label: "Work authorization", value: workAuth });
+  }
+  if (view.locationPreference) {
+    stats.push({ label: "Preferred location", value: view.locationPreference });
+  }
+
+  const extraMeta: Array<{ label: string; value: string }> = [];
+  if (view.englishLevel) {
+    extraMeta.push({
+      label: "English",
+      value: ENGLISH_LABELS[view.englishLevel] ?? view.englishLevel,
+    });
+  }
+  if (view.locationCurrent) {
+    extraMeta.push({ label: "Current location", value: view.locationCurrent });
+  }
+  if (view.availability) {
+    extraMeta.push({ label: "Availability", value: view.availability });
+  }
+  if (sal) {
+    extraMeta.push({ label: "Desired salary", value: sal });
+  }
+  if (view.visaNotes) {
+    extraMeta.push({ label: "Visa notes", value: view.visaNotes });
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="card p-6">
-        <h1 className="text-2xl font-bold text-ink">
+    <div className="space-y-8">
+      <header>
+        <p className="label-caps">
+          {mode === "preview"
+            ? "Shared profile / Preview"
+            : companyName
+              ? `Introduced by Frog / For ${companyName}`
+              : "Introduced by Frog"}
+        </p>
+        <h1 className="mt-2 font-heading text-3xl font-semibold tracking-tight text-brand sm:text-4xl">
           {view.displayName ?? "Candidate"}
         </h1>
         {view.headline && (
-          <p className="mt-1 text-lg text-primary">{view.headline}</p>
+          <p className="mt-2 text-lg text-frog">{view.headline}</p>
         )}
-        <div className="mt-4 flex flex-wrap gap-2 text-xs">
-          {view.yearsExperience != null && (
-            <Tag>{view.yearsExperience} yrs experience</Tag>
-          )}
-          {view.workAuthStatus && (
-            <Tag>Work authorization: {WORK_AUTH_LABELS[view.workAuthStatus] ?? view.workAuthStatus}</Tag>
-          )}
-          {view.englishLevel && (
-            <Tag>English: {ENGLISH_LABELS[view.englishLevel] ?? view.englishLevel}</Tag>
-          )}
-          {view.locationCurrent && <Tag>Current: {view.locationCurrent}</Tag>}
-          {view.locationPreference && <Tag>Preferred: {view.locationPreference}</Tag>}
-          {view.availability && <Tag>Availability: {view.availability}</Tag>}
-          {sal && <Tag>Desired salary: {sal}</Tag>}
-        </div>
+
+        {stats.length > 0 && (
+          <dl className="mt-6 grid gap-4 border-y border-line py-5 sm:grid-cols-3">
+            {stats.map((s) => (
+              <div key={s.label}>
+                <dt className="label-caps">{s.label}</dt>
+                <dd className="mt-1.5 text-sm font-medium text-ink">{s.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
         {view.summary && (
-          <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink">
+          <p className="mt-5 whitespace-pre-line text-base leading-relaxed text-ink">
             {view.summary}
           </p>
         )}
-        {(resumeHref && view.hasResume) && (
+
+        {extraMeta.length > 0 && (
+          <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+            {extraMeta.map((m) => (
+              <div key={m.label} className="text-sm">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  {m.label}
+                </dt>
+                <dd className="mt-0.5 text-ink">{m.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </header>
+
+      {view.recommendation && (
+        <section className="rounded-2xl bg-mint px-6 py-7 sm:px-8">
+          <p className="label-caps text-frog-dark/70">Frog&apos;s perspective</p>
+          <h2 className="mt-2 font-heading text-2xl font-semibold text-brand">
+            Why we recommend {firstName}
+          </h2>
+          <div className="mt-6 space-y-5">
+            <div>
+              <h3 className="text-sm font-semibold text-ink">Strengths</h3>
+              <Markdown className="mt-2 text-sm text-ink/90">
+                {view.recommendation.strengthsMd || "(None provided)"}
+              </Markdown>
+            </div>
+            <div className="border-t border-frog-dark/10 pt-5">
+              <h3 className="text-sm font-semibold text-ink">
+                Points to consider
+              </h3>
+              <Markdown className="mt-2 text-sm text-ink/90">
+                {view.recommendation.considerationsMd || "(None provided)"}
+              </Markdown>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {(resumeHref && view.hasResume) && (
+        <section>
+          <h2 className="text-lg font-semibold text-ink">Profile & resume</h2>
+          <p className="mt-1 text-sm text-muted">
+            Review the candidate&apos;s experience alongside Frog&apos;s
+            recommendation.
+          </p>
           <a
             href={resumeHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 inline-block rounded-md border border-line px-4 py-2 text-sm font-medium text-primary hover:bg-surface-2"
+            className="mt-3 inline-flex text-sm font-semibold text-frog hover:underline"
           >
-            View resume (PDF)
+            View watermarked resume ↗
           </a>
-        )}
-      </div>
-
-      {/* Frog recommendation */}
-      {view.recommendation && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-            <h2 className="text-sm font-bold text-emerald-800">
-              Why Frog recommends this candidate
-            </h2>
-            <Markdown className="mt-2 text-sm text-emerald-900">
-              {view.recommendation.strengthsMd || "(None provided)"}
-            </Markdown>
-          </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-            <h2 className="text-sm font-bold text-amber-800">Points to consider</h2>
-            <Markdown className="mt-2 text-sm text-amber-900">
-              {view.recommendation.considerationsMd || "(None provided)"}
-            </Markdown>
-          </div>
-        </div>
+        </section>
       )}
 
-      {/* Experience */}
       {view.experiences.length > 0 && (
-        <div className="card p-6">
-          <h2 className="mb-4 font-semibold text-ink">Experience</h2>
+        <section>
+          <h2 className="mb-4 text-lg font-semibold text-ink">Experience</h2>
           <div className="space-y-5">
             {view.experiences.map((e) => (
               <div key={e.id} className="border-l-2 border-line pl-4">
@@ -107,13 +195,12 @@ export function CandidateView({ view, resumeHref }: CandidateViewProps) {
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Links */}
       {view.links.length > 0 && (
-        <div className="card p-6">
-          <h2 className="mb-3 font-semibold text-ink">Links</h2>
+        <section>
+          <h2 className="mb-3 text-lg font-semibold text-ink">Links</h2>
           <ul className="space-y-1 text-sm">
             {view.links.map((l) => (
               <li key={l.id}>
@@ -121,23 +208,30 @@ export function CandidateView({ view, resumeHref }: CandidateViewProps) {
                   href={l.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-frog hover:underline"
                 >
                   {l.label ?? l.url}
                 </a>
               </li>
             ))}
           </ul>
-        </div>
+        </section>
+      )}
+
+      {mode === "preview" && (
+        <p className="text-xs text-muted">
+          Only companies Frog has referred you to can access your shared
+          profile, with your consent.
+        </p>
       )}
     </div>
   );
 }
 
-function Tag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full bg-surface-2 px-3 py-1 text-frog-dark">
-      {children}
-    </span>
-  );
+/** Plain-text excerpt of recommendation strengths for list cards. */
+export function recommendationExcerpt(
+  strengthsMd: string | null | undefined,
+  max = 140
+): string | null {
+  return plainExcerpt(strengthsMd, max);
 }

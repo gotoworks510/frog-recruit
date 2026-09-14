@@ -23,7 +23,9 @@ export default async function LinksPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-ink">Links</h1>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight text-brand">
+          Links
+        </h1>
         <p className="mt-1 text-sm text-muted">
           LinkedIn, GitHub, portfolio, and more.
         </p>

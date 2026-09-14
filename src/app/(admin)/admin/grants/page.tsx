@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { desc, eq, isNull } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
@@ -17,17 +18,18 @@ const inputCls =
 
 const ERRORS: Record<string, string> = {
   missing: "企業アカウントと候補者を選択してください。",
-  consent: "この候補者は共有に同意していないため付与できません（候補者の共有設定が必要です）。",
+  consent:
+    "この候補者は共有に同意していないため付与できません（候補者の共有設定が必要です）。",
 };
 
 export default async function AdminGrants({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ok?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; candidate?: string }>;
 }) {
   await requireAdmin();
   const db = await getD1Db();
-  const { error, ok } = await searchParams;
+  const { error, ok, candidate: preselectProfileId } = await searchParams;
 
   const employers = await db
     .select({
@@ -44,6 +46,7 @@ export default async function AdminGrants({
   const candidates = await db
     .select({
       profileId: candidateProfiles.id,
+      userId: candidateProfiles.userId,
       name: candidateProfiles.displayName,
       headline: candidateProfiles.headline,
     })
@@ -52,7 +55,6 @@ export default async function AdminGrants({
     .where(eq(users.status, "approved"))
     .all();
 
-  // Candidates with an active broad/any consent — for an at-a-glance hint.
   const activeConsents = await db
     .select({ candidateProfileId: candidateConsents.candidateProfileId })
     .from(candidateConsents)
@@ -66,6 +68,7 @@ export default async function AdminGrants({
       employerEmail: users.email,
       companyName: companies.name,
       candidateName: candidateProfiles.displayName,
+      candidateUserId: candidateProfiles.userId,
       grantedAt: accessGrants.grantedAt,
       expiresAt: accessGrants.expiresAt,
       revokedAt: accessGrants.revokedAt,
@@ -74,13 +77,21 @@ export default async function AdminGrants({
     .from(accessGrants)
     .innerJoin(users, eq(accessGrants.employerUserId, users.id))
     .leftJoin(companies, eq(accessGrants.companyId, companies.id))
-    .leftJoin(candidateProfiles, eq(accessGrants.candidateProfileId, candidateProfiles.id))
+    .leftJoin(
+      candidateProfiles,
+      eq(accessGrants.candidateProfileId, candidateProfiles.id)
+    )
     .orderBy(desc(accessGrants.grantedAt))
     .all();
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-ink">閲覧権限</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-ink">閲覧権限</h1>
+        <p className="mt-1 text-sm text-muted">
+          企業アカウントに候補者の閲覧権を付与します。実効アクセスには同意＋公開共有推薦も必要です。
+        </p>
+      </div>
 
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
@@ -96,7 +107,9 @@ export default async function AdminGrants({
       <form action={createGrant} className="card grid gap-4 p-6 sm:grid-cols-2">
         <h2 className="font-semibold text-ink sm:col-span-2">権限を付与</h2>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-ink">企業アカウント</span>
+          <span className="mb-1 block text-sm font-medium text-ink">
+            企業アカウント
+          </span>
           <select name="employerUserId" required className={inputCls}>
             {employers.map((e) => (
               <option key={e.userId} value={e.userId}>
@@ -107,7 +120,15 @@ export default async function AdminGrants({
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-ink">候補者</span>
-          <select name="candidateProfileId" required className={inputCls}>
+          <select
+            name="candidateProfileId"
+            required
+            defaultValue={preselectProfileId ?? ""}
+            className={inputCls}
+          >
+            <option value="" disabled>
+              選択してください
+            </option>
             {candidates.map((cd) => (
               <option key={cd.profileId} value={cd.profileId}>
                 {cd.name ?? "候補者"} {cd.headline ? `– ${cd.headline}` : ""}
@@ -117,11 +138,18 @@ export default async function AdminGrants({
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-ink">有効期限（任意）</span>
+          <span className="mb-1 block text-sm font-medium text-ink">
+            有効期限（任意）
+          </span>
           <input name="expiresAt" type="date" className={inputCls} />
         </label>
         <label className="flex items-center gap-2 pt-6 text-sm text-ink">
-          <input type="checkbox" name="canDownloadResume" value="1" defaultChecked />
+          <input
+            type="checkbox"
+            name="canDownloadResume"
+            value="1"
+            defaultChecked
+          />
           レジュメ閲覧を許可
         </label>
         <div className="sm:col-span-2">
@@ -153,14 +181,26 @@ export default async function AdminGrants({
             )}
             {grants.map((g) => {
               const inactive =
-                g.revokedAt || (g.expiresAt && g.expiresAt.getTime() <= Date.now());
+                g.revokedAt ||
+                (g.expiresAt && g.expiresAt.getTime() <= Date.now());
               return (
                 <tr key={g.id} className="border-t border-line">
                   <td className="px-4 py-3">
                     <p className="text-ink">{g.companyName ?? "—"}</p>
                     <p className="text-xs text-muted">{g.employerEmail}</p>
                   </td>
-                  <td className="px-4 py-3 text-ink">{g.candidateName ?? "—"}</td>
+                  <td className="px-4 py-3 text-ink">
+                    {g.candidateUserId ? (
+                      <Link
+                        href={`/admin/candidates/${g.candidateUserId}`}
+                        className="text-primary hover:underline"
+                      >
+                        {g.candidateName ?? "候補者"}
+                      </Link>
+                    ) : (
+                      g.candidateName ?? "—"
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-xs">
                     {g.revokedAt ? (
                       <span className="text-danger">失効</span>
@@ -168,7 +208,10 @@ export default async function AdminGrants({
                       <span className="text-muted">期限切れ</span>
                     ) : (
                       <span className="text-frog-dark">
-                        有効{g.expiresAt ? ` (〜${formatDateTime(g.expiresAt)})` : ""}
+                        有効
+                        {g.expiresAt
+                          ? ` (〜${formatDateTime(g.expiresAt)})`
+                          : ""}
                       </span>
                     )}
                   </td>
@@ -179,7 +222,9 @@ export default async function AdminGrants({
                     {!g.revokedAt && (
                       <form action={revokeGrant}>
                         <input type="hidden" name="id" value={g.id} />
-                        <button className="text-xs text-danger hover:underline">失効</button>
+                        <button className="text-xs text-danger hover:underline">
+                          失効
+                        </button>
                       </form>
                     )}
                   </td>

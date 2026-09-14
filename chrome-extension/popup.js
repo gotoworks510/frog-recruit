@@ -15,11 +15,33 @@ async function extractJobFromPage() {
     }
     return null;
   };
-  const stripHtml = (html) => {
+
+  /** Keep paragraph/list structure for later AI formatting — do NOT flatten to one line. */
+  const blockText = (el) => {
+    if (!el) return null;
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll("script, style, noscript").forEach((n) => n.remove());
+    clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+    clone
+      .querySelectorAll("p, li, h1, h2, h3, h4, h5, tr, section, article")
+      .forEach((n) => {
+        n.prepend(document.createTextNode("\n"));
+        n.append(document.createTextNode("\n"));
+      });
+    let out = (clone.textContent || "")
+      .replace(/\u00a0/g, " ")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n[ \t]+/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    return out.length >= 40 ? out : null;
+  };
+
+  const htmlSnippet = (el, max = 100000) => {
+    if (!el || !el.innerHTML) return null;
+    const html = el.innerHTML.trim();
     if (!html) return null;
-    const d = document.createElement("div");
-    d.innerHTML = html;
-    return (d.textContent || "").replace(/\s+/g, " ").trim() || null;
+    return html.length > max ? html.slice(0, max) + "<!-- truncated -->" : html;
   };
 
   /**
@@ -96,12 +118,49 @@ async function extractJobFromPage() {
     }
     let out = full
       .slice(start, end)
-      .replace(/^\s*see more\s*/i, "")
-      .replace(/\s*see less\s*$/i, "")
-      .replace(/\s+/g, " ")
+      .replace(/^\s*see more\s*/im, "")
+      .replace(/\s*see less\s*$/im, "")
+      .replace(/\u00a0/g, " ")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n[ \t]+/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
     if (out.length < 80) return null;
     return out.slice(0, 20000);
+  };
+
+  // Define before locationFromPageText uses it via closure at call time.
+  const cleanLocation = (raw) => {
+    if (!raw || typeof raw !== "string") return null;
+    const isNoise = (seg) => {
+      const s = seg.replace(/\s+/g, " ").trim();
+      if (!s) return true;
+      if (/^(Posted|Reposted)\b/i.test(s)) return true;
+      if (/^(Easy Apply|Promoted|Actively recruiting)\b/i.test(s)) return true;
+      if (/\b\d+\s+applicants?\b/i.test(s)) return true;
+      if (/\bBe among the first\b/i.test(s)) return true;
+      if (/^Over \d+/i.test(s)) return true;
+      // "2 weeks ago" / "a month ago" / "3d ago" / "Yesterday"
+      if (
+        /^(a|an|\d+)\s*(second|minute|hour|day|week|month|year)s?\s+ago\b/i.test(s)
+      ) {
+        return true;
+      }
+      if (/^\d+\s*(s|m|h|d|w|mo|mos|yr|yrs)\s*ago\b/i.test(s)) return true;
+      if (/^(yesterday|today|just now)\b/i.test(s)) return true;
+      if (/\b(second|minute|hour|day|week|month|year)s?\s+ago\b/i.test(s)) {
+        return true;
+      }
+      return false;
+    };
+
+    const parts = raw
+      .split(/\s*[·•|]\s*/)
+      .map((p) => p.replace(/\s+/g, " ").trim())
+      .filter((p) => p && !isNoise(p));
+
+    if (!parts.length) return null;
+    return parts.join(" · ");
   };
 
   const locationFromPageText = () => {
@@ -118,12 +177,7 @@ async function extractJobFromPage() {
           line
         )
       ) {
-        return line
-          .replace(/\s*·\s*(Posted|Reposted).*$/i, "")
-          .replace(/\s*·\s*Over \d+.*$/i, "")
-          .replace(/\s*·\s*\d+\s+applicants.*$/i, "")
-          .replace(/\s*Easy Apply.*$/i, "")
-          .trim();
+        return cleanLocation(line);
       }
     }
     return null;
@@ -164,7 +218,13 @@ async function extractJobFromPage() {
             ? node.hiringOrganization
             : null) ||
           out.companyName;
-        out.description = stripHtml(node.description) || out.description;
+        out.description =
+          (() => {
+            if (!node.description) return null;
+            const d = document.createElement("div");
+            d.innerHTML = String(node.description);
+            return blockText(d);
+          })() || out.description;
         const loc = node.jobLocation;
         const locs = Array.isArray(loc) ? loc : loc ? [loc] : [];
         const parts = [];
@@ -207,6 +267,7 @@ async function extractJobFromPage() {
   let externalId = null;
   let sourceUrl = href;
   let descriptionMethod = null;
+  let descriptionHtml = null;
 
   const ld = fromJsonLd();
 
@@ -290,15 +351,17 @@ async function extractJobFromPage() {
       document.querySelector("article.jobs-description__container") ||
       document.querySelector(".core-section-container__content");
 
-    if (ld.description && ld.description.length >= 80) {
+    // Prefer DOM block text (keeps newlines) over JSON-LD (often one flat line).
+    descriptionHtml = htmlSnippet(descRoot);
+    if (descRoot && blockText(descRoot)) {
+      description = blockText(descRoot);
+      descriptionMethod = "dom-html";
+    } else if (aboutJobFromInnerText()) {
+      description = aboutJobFromInnerText();
+      descriptionMethod = "innerText-slice";
+    } else if (ld.description && ld.description.length >= 80) {
       description = ld.description;
       descriptionMethod = "jsonld";
-    } else if (text(descRoot) && text(descRoot).length >= 80) {
-      description = text(descRoot);
-      descriptionMethod = "dom";
-    } else {
-      description = aboutJobFromInnerText();
-      descriptionMethod = description ? "innerText-slice" : null;
     }
 
     salary = ld.salary || salary;
@@ -320,10 +383,13 @@ async function extractJobFromPage() {
         "[data-testid='inlineHeader-companyLocation']",
         "[data-testid='job-location']",
       ]);
+    descriptionHtml =
+      htmlSnippet(document.querySelector("#jobDescriptionText")) ||
+      htmlSnippet(document.querySelector(".jobsearch-JobComponent-description"));
     description =
+      blockText(document.querySelector("#jobDescriptionText")) ||
+      blockText(document.querySelector(".jobsearch-JobComponent-description")) ||
       ld.description ||
-      text(document.querySelector("#jobDescriptionText")) ||
-      text(document.querySelector(".jobsearch-JobComponent-description")) ||
       null;
     salary =
       ld.salary ||
@@ -339,10 +405,13 @@ async function extractJobFromPage() {
       ld.companyName ||
       firstText(["[data-test='employer-name']", "[data-test='employerName']"]);
     locationText = ld.locationText || firstText(["[data-test='location']"]);
+    descriptionHtml =
+      htmlSnippet(document.querySelector("[data-test='description']")) ||
+      htmlSnippet(document.querySelector(".JobDetails_jobDescription__"));
     description =
+      blockText(document.querySelector("[data-test='description']")) ||
+      blockText(document.querySelector(".JobDetails_jobDescription__")) ||
       ld.description ||
-      text(document.querySelector("[data-test='description']")) ||
-      text(document.querySelector(".JobDetails_jobDescription__")) ||
       null;
     salary = ld.salary;
   } else {
@@ -396,6 +465,8 @@ async function extractJobFromPage() {
     locationText = locationFromPageText();
   }
 
+  locationText = cleanLocation(locationText);
+
   return {
     sourceUrl,
     source,
@@ -414,7 +485,10 @@ async function extractJobFromPage() {
       usedJsonLd: !!(ld.title || ld.description || ld.companyName),
       descriptionMethod,
       descriptionLength: description ? description.length : 0,
+      descriptionHtml,
       bodyTextLength: (document.body?.innerText || "").length,
+      // Capture-only: formatting/cleanup is intentionally deferred (manual or AI later).
+      captureOnly: true,
     },
   };
 }
@@ -426,6 +500,13 @@ document.getElementById("save").addEventListener("click", async () => {
   status.textContent = "Capturing (expanding See more)…";
 
   try {
+    const currencyEl = document.querySelector(
+      'input[name="currency"]:checked'
+    );
+    const salaryCurrency =
+      currencyEl && currencyEl.value === "USD" ? "USD" : "CAD";
+    await chrome.storage.sync.set({ salaryCurrency });
+
     const cfg = await chrome.storage.sync.get({
       apiBase: "http://localhost:3005",
       token: "",
@@ -511,6 +592,8 @@ document.getElementById("save").addEventListener("click", async () => {
       };
     }
 
+    payload.salaryCurrency = salaryCurrency;
+
     const res = await fetch(`${cfg.apiBase.replace(/\/$/, "")}/api/desk/job-leads`, {
       method: "POST",
       headers: {
@@ -531,11 +614,21 @@ document.getElementById("save").addEventListener("click", async () => {
     const descLen = payload.description ? payload.description.length : 0;
     const method = payload.raw?.descriptionMethod || "?";
     status.textContent = label
-      ? `${data.duplicate ? "Updated" : "Saved"}: ${label}\nJD ${descLen} chars (${method})\nscore ${data.score}\n${data.inboxUrl}`
-      : `${data.duplicate ? "Updated" : "Saved"} (score ${data.score}).\nJD ${descLen} chars\n${data.inboxUrl}`;
+      ? `${data.duplicate ? "Updated" : "Saved"}: ${label}\n${salaryCurrency} · JD ${descLen} chars (${method})\nscore ${data.score}\n${data.inboxUrl}`
+      : `${data.duplicate ? "Updated" : "Saved"} (${salaryCurrency}, score ${data.score}).\nJD ${descLen} chars\n${data.inboxUrl}`;
   } catch (err) {
     status.textContent = String(err?.message || err);
   } finally {
     btn.disabled = false;
   }
 });
+
+// Restore last CAD/USD choice.
+(async () => {
+  const { salaryCurrency } = await chrome.storage.sync.get({
+    salaryCurrency: "CAD",
+  });
+  const value = salaryCurrency === "USD" ? "USD" : "CAD";
+  const el = document.querySelector(`input[name="currency"][value="${value}"]`);
+  if (el) el.checked = true;
+})();

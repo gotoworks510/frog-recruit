@@ -1,55 +1,56 @@
-import Link from "next/link";
 import { requireCandidate } from "@/lib/auth/helpers";
 import { signOut } from "@/lib/auth/auth";
-import { Logo } from "@/components/brand/Logo";
-
-const NAV = [
-  { href: "/me", label: "Home" },
-  { href: "/me/profile", label: "Profile" },
-  { href: "/me/experience", label: "Experience" },
-  { href: "/me/links", label: "Links" },
-  { href: "/me/resume", label: "Resume" },
-  { href: "/me/sharing", label: "Sharing" },
-  { href: "/me/preview", label: "Preview" },
-];
+import { BrandMark } from "@/components/brand/BrandMark";
+import { SiteFooter } from "@/components/brand/SiteFooter";
+import { CandidateNav } from "@/components/candidate/CandidateNav";
+import { ViewAsBanner } from "@/components/admin/ViewAsBanner";
+import { isViewAsSession } from "@/lib/auth/view-as";
+import { exitViewAs } from "@/lib/admin/actions";
 
 export default async function CandidateLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requireCandidate();
+  const session = await requireCandidate();
+  const previewing = isViewAsSession(session);
+  const displayName = session.user.name ?? session.user.email ?? "Candidate";
+
   return (
-    <div className="min-h-screen bg-surface">
-      <header className="border-b border-line bg-paper">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/me">
-            <Logo variant="green" height={30} />
-          </Link>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <button className="text-sm text-muted hover:text-ink">
-              Sign out
-            </button>
-          </form>
+    <div className="flex min-h-screen flex-col bg-surface">
+      {previewing && <ViewAsBanner session={session} />}
+      <header className="bg-brand text-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
+          <BrandMark href="/me" variant="white" logoHeight={28} />
+          <div className="flex items-center gap-4 text-sm">
+            <span className="hidden text-white/80 sm:inline">{displayName}</span>
+            {previewing ? (
+              <form action={exitViewAs}>
+                <button className="text-white/80 transition hover:text-white">
+                  管理画面に戻る
+                </button>
+              </form>
+            ) : (
+              <form
+                action={async () => {
+                  "use server";
+                  await signOut({ redirectTo: "/login" });
+                }}
+              >
+                <button className="text-white/80 transition hover:text-white">
+                  Sign out
+                </button>
+              </form>
+            )}
+          </div>
         </div>
-        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-2 pb-2 text-sm">
-          {NAV.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className="whitespace-nowrap rounded-md px-3 py-1.5 text-ink hover:bg-surface-2"
-            >
-              {n.label}
-            </Link>
-          ))}
-        </nav>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <CandidateNav />
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+      <SiteFooter
+        noteLeft="Part of Frog's long-standing overseas career community."
+        noteRight="Questions about your next step? Contact your Frog representative."
+      />
     </div>
   );
 }

@@ -19,6 +19,13 @@ declare module "next-auth" {
       status: string;
       companyId: string | null;
       privacyConsentedAt: number | null;
+      /** Present only while an admin is previewing as this user. */
+      viewAs?: {
+        adminId: string;
+        adminEmail?: string | null;
+        as: "candidate" | "employer";
+        label: string;
+      };
     };
   }
 }

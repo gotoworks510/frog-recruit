@@ -44,6 +44,49 @@ export function parseLinkedInDocumentTitle(docTitle: string | null | undefined):
   return { title: cleaned, companyName: null };
 }
 
+/** Drop LinkedIn-style "3 months ago" / applicant noise from location lines. */
+export function cleanLocationRaw(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null;
+  const isNoise = (seg: string) => {
+    const s = seg.replace(/\s+/g, " ").trim();
+    if (!s) return true;
+    if (/^(Posted|Reposted)\b/i.test(s)) return true;
+    if (/^(Easy Apply|Promoted|Actively recruiting)\b/i.test(s)) return true;
+    if (/\b\d+\s+applicants?\b/i.test(s)) return true;
+    if (/\bBe among the first\b/i.test(s)) return true;
+    if (/^Over \d+/i.test(s)) return true;
+    if (
+      /^(a|an|\d+)\s*(second|minute|hour|day|week|month|year)s?\s+ago\b/i.test(s)
+    ) {
+      return true;
+    }
+    if (/^\d+\s*(s|m|h|d|w|mo|mos|yr|yrs)\s*ago\b/i.test(s)) return true;
+    if (/^(yesterday|today|just now)\b/i.test(s)) return true;
+    if (/\b(second|minute|hour|day|week|month|year)s?\s+ago\b/i.test(s)) {
+      return true;
+    }
+    return false;
+  };
+
+  const parts = raw
+    .split(/\s*[·•|]\s*/)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter((p) => p && !isNoise(p));
+
+  if (!parts.length) return null;
+  return parts.join(" · ");
+}
+
+/** Operator pick at capture: Canada → CAD, US → USD. Default CAD. */
+export function normalizeSalaryCurrency(
+  value: unknown
+): "CAD" | "USD" {
+  const s = String(value ?? "")
+    .trim()
+    .toUpperCase();
+  return s === "USD" ? "USD" : "CAD";
+}
+
 /**
  * Fill missing capture fields from extension raw.titleDocument / page hints.
  */
@@ -65,7 +108,7 @@ export function enrichCaptureFromRaw(
   return {
     titleRaw: incoming.titleRaw || parsed.title,
     companyNameRaw: incoming.companyNameRaw || parsed.companyName,
-    locationRaw: incoming.locationRaw,
+    locationRaw: cleanLocationRaw(incoming.locationRaw),
     descriptionRaw: incoming.descriptionRaw,
   };
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { requireEmployerReady } from "@/lib/employer/guard";
+import { isViewAsSession } from "@/lib/auth/view-as";
 import { getEffectiveGrant } from "@/lib/auth/grant";
 import { candidateFeedback } from "@/lib/db/schema";
 import { writeAudit } from "@/lib/audit/log";
@@ -29,6 +30,7 @@ function str(v: FormDataEntryValue | null): string | null {
  */
 export async function saveCandidateFeedback(formData: FormData) {
   const { session, db } = await requireEmployerReady();
+  if (isViewAsSession(session)) redirect("/portal?readonly=1");
   const candidateProfileId = str(formData.get("candidateProfileId"));
   if (!candidateProfileId) redirect("/portal");
 

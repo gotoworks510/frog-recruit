@@ -21,6 +21,8 @@ const ERRORS: Record<string, string> = {
   email_taken:
     "このメールアドレスは別の種類のアカウント（候補者または管理者）で使用されているため、企業アカウントにはできません。",
   notfound: "対象の企業アカウントが見つかりませんでした。",
+  disabled: "無効化されたアカウントはプレビューできません。先に有効化してください。",
+  config: "プレビュー用の署名鍵（NEXTAUTH_SECRET）を確認してください。",
 };
 
 export default async function AdminEmployers({
@@ -31,6 +33,7 @@ export default async function AdminEmployers({
     created?: string;
     rotated?: string;
     deleted?: string;
+    disabled?: string;
   }>;
 }) {
   await requireAdmin();
@@ -68,6 +71,9 @@ export default async function AdminEmployers({
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-ink">企業アカウント</h1>
+      <p className="text-sm text-muted">
+        「企業として見る」で、ログアウトせずに企業ポータル（/portal）を確認できます（読み取り専用）。
+      </p>
 
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
@@ -162,6 +168,18 @@ export default async function AdminEmployers({
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-3 text-xs">
+                    {!e.disabledAt && (
+                      <form action="/api/admin/view-as" method="post">
+                        <input type="hidden" name="as" value="employer" />
+                        <input type="hidden" name="userId" value={e.userId} />
+                        <button
+                          type="submit"
+                          className="font-medium text-frog-dark hover:underline"
+                        >
+                          企業として見る
+                        </button>
+                      </form>
+                    )}
                     <form action={rotateEmployerPassword}>
                       <input type="hidden" name="userId" value={e.userId} />
                       <button className="text-primary hover:underline">パス再発行</button>

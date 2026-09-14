@@ -9,7 +9,7 @@ import { CandidateView } from "@/components/candidate/CandidateView";
 import { CandidateFeedbackForm } from "@/components/employer/CandidateFeedbackForm";
 import { saveCandidateFeedback } from "@/lib/employer/feedback-actions";
 import { parseDeclineReasons, type CandidateFeedbackData } from "@/lib/employer/feedback";
-import { candidateFeedback } from "@/lib/db/schema";
+import { candidateFeedback, companies } from "@/lib/db/schema";
 import { writeAudit } from "@/lib/audit/log";
 
 export default async function EmployerCandidateDetail({
@@ -33,6 +33,12 @@ export default async function EmployerCandidateDetail({
     companyId: grant.companyId,
   });
   if (!view) notFound();
+
+  const company = await db
+    .select({ name: companies.name })
+    .from(companies)
+    .where(eq(companies.id, grant.companyId))
+    .get();
 
   // This employer's existing feedback (if any) for the widget.
   const fbRow = await db
@@ -58,8 +64,8 @@ export default async function EmployerCandidateDetail({
 
   const hdrs = await headers();
   await writeAudit(db, {
-    actorUserId: session.user.id,
-    actorRole: "employer",
+    actorUserId: session.user.viewAs?.adminId ?? session.user.id,
+    actorRole: session.user.viewAs ? "admin_view_as" : "employer",
     companyId: session.user.companyId,
     candidateProfileId: id,
     action: "view_detail",
@@ -69,23 +75,34 @@ export default async function EmployerCandidateDetail({
   });
 
   return (
-    <div className="space-y-4">
-      <Link href="/portal" className="text-sm text-primary hover:underline">
-        ← Back to candidates
+    <div className="space-y-6">
+      <Link
+        href="/portal"
+        className="inline-flex text-sm font-medium text-muted transition hover:text-ink"
+      >
+        ← All introductions
       </Link>
-      <CandidateFeedbackForm
-        candidateProfileId={id}
-        candidateName={view.displayName ?? "this candidate"}
-        initial={initialFeedback}
-        action={saveCandidateFeedback}
-        saved={fb === "saved"}
-      />
-      <CandidateView
-        view={view}
-        resumeHref={
-          grant.canDownloadResume ? `/portal/candidates/${id}/resume` : undefined
-        }
-      />
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <CandidateView
+          view={view}
+          companyName={company?.name}
+          resumeHref={
+            grant.canDownloadResume
+              ? `/portal/candidates/${id}/resume`
+              : undefined
+          }
+        />
+        <aside className="lg:sticky lg:top-6">
+          <CandidateFeedbackForm
+            candidateProfileId={id}
+            candidateName={view.displayName ?? "this candidate"}
+            initial={initialFeedback}
+            action={saveCandidateFeedback}
+            saved={fb === "saved"}
+          />
+        </aside>
+      </div>
     </div>
   );
 }

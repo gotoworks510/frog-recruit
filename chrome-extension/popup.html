@@ -11,7 +11,45 @@
         width: 280px;
         color: #14261c;
       }
-      button {
+      .field {
+        margin-bottom: 10px;
+      }
+      .field label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #5b6b62;
+        margin-bottom: 6px;
+      }
+      .seg {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .seg label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin: 0;
+        padding: 8px 10px;
+        border: 1px solid #d5ddd8;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #14261c;
+        cursor: pointer;
+        background: #f7f9f8;
+      }
+      .seg input {
+        accent-color: #1f7a4c;
+      }
+      .seg label:has(input:checked) {
+        border-color: #1f7a4c;
+        background: #e8f5ee;
+        color: #145c38;
+      }
+      button#save {
         width: 100%;
         padding: 10px 12px;
         border: 0;
@@ -21,7 +59,7 @@
         font-weight: 600;
         cursor: pointer;
       }
-      button:disabled {
+      button#save:disabled {
         opacity: 0.6;
         cursor: default;
       }
@@ -34,9 +72,28 @@
       a {
         color: #1f7a4c;
       }
+      .hint {
+        margin: 0 0 10px;
+        font-size: 11px;
+        color: #8a9690;
+      }
     </style>
   </head>
   <body>
+    <div class="field">
+      <label>Currency / market</label>
+      <div class="seg" role="radiogroup" aria-label="Currency">
+        <label>
+          <input type="radio" name="currency" value="CAD" checked />
+          CAD
+        </label>
+        <label>
+          <input type="radio" name="currency" value="USD" />
+          USD
+        </label>
+      </div>
+    </div>
+    <p class="hint">Canada roles → CAD · US roles → USD. Last choice is remembered.</p>
     <button id="save" type="button">Save to Job Inbox</button>
     <div id="status">Ready.</div>
     <p style="margin: 10px 0 0; font-size: 11px; color: #8a9690">

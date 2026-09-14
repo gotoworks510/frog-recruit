@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { and, eq, isNull } from "drizzle-orm";
-import { requireCandidate } from "@/lib/auth/helpers";
+import { requireCandidateWritable } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
 import {
   candidateProfiles,
@@ -49,7 +49,7 @@ async function recomputeCompleteness(db: Database, userId: string) {
 }
 
 export async function updateProfile(formData: FormData) {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profileId = await ownProfileId(db, session.user.id);
   if (!profileId) return;
@@ -82,7 +82,7 @@ export async function updateProfile(formData: FormData) {
 }
 
 export async function addExperience(formData: FormData) {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profileId = await ownProfileId(db, session.user.id);
   if (!profileId) return;
@@ -115,7 +115,7 @@ export async function addExperience(formData: FormData) {
 }
 
 export async function deleteExperience(formData: FormData) {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profileId = await ownProfileId(db, session.user.id);
   const id = str(formData.get("id"));
@@ -135,7 +135,7 @@ export async function deleteExperience(formData: FormData) {
 }
 
 export async function addLink(formData: FormData) {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profileId = await ownProfileId(db, session.user.id);
   if (!profileId) return;
@@ -156,7 +156,7 @@ export async function addLink(formData: FormData) {
 }
 
 export async function deleteLink(formData: FormData) {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profileId = await ownProfileId(db, session.user.id);
   const id = str(formData.get("id"));
@@ -175,7 +175,7 @@ export async function deleteLink(formData: FormData) {
 }
 
 export async function uploadResume(formData: FormData) {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profileId = await ownProfileId(db, session.user.id);
   if (!profileId) return;
@@ -211,7 +211,7 @@ export async function uploadResume(formData: FormData) {
 }
 
 export async function removeResume() {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profile = await db
     .select({ id: candidateProfiles.id, resumeKey: candidateProfiles.resumeKey })
@@ -237,7 +237,7 @@ export async function removeResume() {
 
 /** Revoke broad share consent — employer access stops on the next request. */
 export async function revokeConsent() {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profileId = await ownProfileId(db, session.user.id);
   if (!profileId) return;
@@ -257,7 +257,7 @@ export async function revokeConsent() {
 
 /** Re-enable broad share consent. */
 export async function enableConsent() {
-  const session = await requireCandidate();
+  const session = await requireCandidateWritable();
   const db = await getD1Db();
   const profileId = await ownProfileId(db, session.user.id);
   if (!profileId) return;

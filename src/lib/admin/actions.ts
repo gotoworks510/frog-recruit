@@ -218,25 +218,6 @@ export async function createCompany(formData: FormData) {
   revalidatePath("/admin/companies");
 }
 
-export async function createJob(formData: FormData) {
-  await requireAdmin();
-  const db = await getD1Db();
-  const companyId = str(formData.get("companyId"));
-  const title = str(formData.get("title"));
-  if (!companyId || !title) return;
-  await db.insert(jobs).values({
-    companyId,
-    title,
-    description: str(formData.get("description")),
-    salaryMin: num(formData.get("salaryMin")),
-    salaryMax: num(formData.get("salaryMax")),
-    salaryCurrency: str(formData.get("salaryCurrency")) ?? "USD",
-    location: str(formData.get("location")),
-    workAuthRequirement: str(formData.get("workAuthRequirement")),
-  });
-  revalidatePath("/admin/companies");
-}
-
 export async function updateCompany(formData: FormData) {
   await requireAdmin();
   const db = await getD1Db();
@@ -616,4 +597,68 @@ export async function revokeGrant(formData: FormData) {
     .set({ revokedAt: new Date() })
     .where(eq(accessGrants.id, id));
   revalidatePath("/admin/grants");
+  revalidatePath("/admin/candidates");
+}
+
+// --- Admin view-as (preview candidate / employer UI without re-login) -----
+
+export async function startViewAsCandidate(formData: FormData) {
+  const session = await requireAdmin();
+  const userId = str(formData.get("userId"));
+  if (!userId) redirect("/admin/candidates?error=missing");
+
+  const db = await getD1Db();
+  const target = await db
+    .select({ id: users.id, role: users.role, status: users.status })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (!target || target.role !== "candidate") {
+    redirect("/admin/candidates?error=notfound");
+  }
+
+  const { buildViewAsPayload, setViewAsCookie } = await import("@/lib/auth/view-as");
+  await setViewAsCookie(
+    buildViewAsPayload(session.user.id, "candidate", target.id)
+  );
+  redirect("/me");
+}
+
+export async function startViewAsEmployer(formData: FormData) {
+  const session = await requireAdmin();
+  const userId = str(formData.get("userId"));
+  if (!userId) redirect("/admin/employers?error=missing");
+
+  const db = await getD1Db();
+  const target = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (!target || target.role !== "employer") {
+    redirect("/admin/employers?error=notfound");
+  }
+
+  const acct = await db
+    .select({ disabledAt: employerAccounts.disabledAt })
+    .from(employerAccounts)
+    .where(eq(employerAccounts.userId, target.id))
+    .get();
+  if (acct?.disabledAt) {
+    redirect("/admin/employers?error=disabled");
+  }
+
+  const { buildViewAsPayload, setViewAsCookie } = await import("@/lib/auth/view-as");
+  await setViewAsCookie(
+    buildViewAsPayload(session.user.id, "employer", target.id)
+  );
+  redirect("/portal");
+}
+
+export async function exitViewAs() {
+  const session = await requireAdmin();
+  void session;
+  const { clearViewAsCookie } = await import("@/lib/auth/view-as");
+  await clearViewAsCookie();
+  redirect("/admin");
 }

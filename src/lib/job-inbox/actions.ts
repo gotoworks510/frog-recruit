@@ -103,7 +103,14 @@ export async function convertJobLead(formData: FormData) {
   const lead = await db.select().from(jobLeads).where(eq(jobLeads.id, id)).get();
   if (!lead) redirect("/admin/job-inbox?error=missing");
   if (lead.convertedJobId) {
-    redirect(`/admin/companies?highlight=${lead.convertedCompanyId}`);
+    const companyId = lead.convertedCompanyId;
+    await db.delete(jobLeads).where(eq(jobLeads.id, id));
+    revalidatePath("/admin/job-inbox");
+    redirect(
+      companyId
+        ? `/admin/companies?highlight=${companyId}`
+        : "/admin/companies"
+    );
   }
 
   const companyName = str(formData.get("companyName")) || lead.companyNameRaw || "Unknown Co";
@@ -111,6 +118,13 @@ export async function convertJobLead(formData: FormData) {
   const location = str(formData.get("location")) || lead.locationRaw;
   const description =
     str(formData.get("description")) || lead.descriptionRaw || lead.sourceUrl;
+  const salaryCurrencyRaw = str(formData.get("salaryCurrency"));
+  const salaryCurrency =
+    salaryCurrencyRaw === "USD" || salaryCurrencyRaw === "CAD"
+      ? salaryCurrencyRaw
+      : lead.salaryCurrency === "USD"
+        ? "USD"
+        : "CAD";
 
   let slug = slugifyCompany(companyName);
   const slugTaken = await db
@@ -139,26 +153,16 @@ export async function convertJobLead(formData: FormData) {
     description,
     location,
     status: "open",
-    salaryCurrency: "USD",
+    salaryCurrency,
     createdAt: now,
   });
-  await db
-    .update(jobLeads)
-    .set({
-      status: "converted",
-      convertedCompanyId: companyId,
-      convertedJobId: jobId,
-      companyNameRaw: companyName,
-      titleRaw: title,
-      locationRaw: location,
-      descriptionRaw: description,
-      updatedAt: now,
-    })
-    .where(eq(jobLeads.id, id));
+
+  // Inbox is a queue — once published as a real job, drop the lead so it does not pile up.
+  await db.delete(jobLeads).where(eq(jobLeads.id, id));
 
   revalidatePath("/admin/job-inbox");
   revalidatePath("/admin/companies");
-  redirect("/admin/companies");
+  redirect(`/admin/companies?highlight=${companyId}&fromInbox=1`);
 }
 
 export async function deleteJobLead(formData: FormData) {

@@ -4,7 +4,11 @@ import { requireEmployer } from "@/lib/auth/helpers";
 import { signOut } from "@/lib/auth/auth";
 import { getD1Db } from "@/lib/db/client";
 import { employerAccounts, companies } from "@/lib/db/schema";
-import { Logo } from "@/components/brand/Logo";
+import { BrandMark } from "@/components/brand/BrandMark";
+import { SiteFooter } from "@/components/brand/SiteFooter";
+import { ViewAsBanner } from "@/components/admin/ViewAsBanner";
+import { isViewAsSession } from "@/lib/auth/view-as";
+import { exitViewAs } from "@/lib/admin/actions";
 
 export default async function EmployerLayout({
   children,
@@ -12,6 +16,7 @@ export default async function EmployerLayout({
   children: React.ReactNode;
 }) {
   const session = await requireEmployer();
+  const previewing = isViewAsSession(session);
   const db = await getD1Db();
 
   const acct = await db
@@ -24,8 +29,8 @@ export default async function EmployerLayout({
     .where(eq(employerAccounts.userId, session.user.id))
     .get();
 
-  // Disabled accounts are signed out immediately.
-  if (acct?.disabledAt) {
+  // Disabled accounts are signed out immediately (but not during admin preview).
+  if (acct?.disabledAt && !previewing) {
     await signOut({ redirectTo: "/employer/login" });
   }
 
@@ -33,37 +38,50 @@ export default async function EmployerLayout({
   // requireEmployerReady() (see src/lib/employer/guard.ts), not here, so the
   // password page can render inside this layout without a redirect loop.
 
+  const companyName = acct?.companyName ?? "Employer";
+
   return (
-    <div className="min-h-screen bg-surface">
-      <header className="border-b border-line bg-paper">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link href="/portal">
-              <Logo variant="green" height={28} />
-            </Link>
-            <span className="text-sm text-muted">
-              {acct?.companyName ?? "Employer"} Portal
-            </span>
-          </div>
+    <div className="flex min-h-screen flex-col bg-surface">
+      {previewing && <ViewAsBanner session={session} />}
+      <header className="bg-brand text-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
+          <BrandMark href="/portal" variant="white" logoHeight={28} />
           <div className="flex items-center gap-4 text-sm">
-            <Link href="/portal/account/password" className="text-muted hover:text-ink">
-              Change password
-            </Link>
-            <form
-              action={async () => {
-                "use server";
-                await signOut({ redirectTo: "/employer/login" });
-              }}
-            >
-              <button className="text-muted hover:text-ink">Sign out</button>
-            </form>
+            <span className="hidden text-white/80 sm:inline">{companyName}</span>
+            {!previewing && (
+              <Link
+                href="/portal/account/password"
+                className="text-white/80 transition hover:text-white"
+              >
+                Account
+              </Link>
+            )}
+            {previewing ? (
+              <form action={exitViewAs}>
+                <button className="text-white/80 transition hover:text-white">
+                  管理画面に戻る
+                </button>
+              </form>
+            ) : (
+              <form
+                action={async () => {
+                  "use server";
+                  await signOut({ redirectTo: "/employer/login" });
+                }}
+              >
+                <button className="text-white/80 transition hover:text-white">
+                  Sign out
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
-      <footer className="py-8 text-center text-xs text-muted">
-        The candidate information on this screen is confidential. Please do not share or redistribute it to third parties.
-      </footer>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+      <SiteFooter
+        noteLeft="Built on about 12 years of overseas career support."
+        noteRight="Private to your company. Please do not redistribute candidate information."
+      />
     </div>
   );
 }

@@ -2,6 +2,13 @@
 
 Local/dev companion for **Job Inbox**. Saves the active LinkedIn / Indeed / Glassdoor job tab into `http://localhost:3005/api/desk/job-leads`.
 
+## Design
+
+**Capture only.** The extension sucks structured fields + raw JD text/HTML off the page.
+Readable formatting (headings, bullets, tone) is **deferred** — clean up later with AI or by hand in Job Inbox / after convert.
+
+Do not turn this extension into a formatter or LLM client.
+
 ## Setup
 
 1. In frog-recruit `.env.local`:
@@ -11,12 +18,10 @@ JOB_INBOX_ENABLED=1
 JOB_INBOX_TOKEN=dev-local-change-me
 ```
 
-2. Apply the local D1 migration (or your DEV D1):
+2. Apply the D1 migration to the DB your `.env.local` points at (`DEV_D1_DATABASE_ID`):
 
 ```bash
-npx wrangler d1 execute frog-recruit-db --local --file=scripts/migrations/0005_job_leads.sql
-# or against DEV remote:
-# npx wrangler d1 execute frog-recruit-db --remote --file=scripts/migrations/0005_job_leads.sql
+npx wrangler d1 execute frog-recruit-dev-db --remote --file=scripts/migrations/0005_job_leads.sql
 ```
 
 3. Start the app: `npm run dev` (port 3005).
@@ -31,10 +36,12 @@ npx wrangler d1 execute frog-recruit-db --local --file=scripts/migrations/0005_j
 
 ```
 Job page (LI / Indeed / Glassdoor)
-  → Chrome extension (DOM extract)
-  → POST /api/desk/job-leads (Bearer token)
-  → job_leads table
-  → Admin Job Inbox → optional convert → companies/jobs
+  → Chrome extension (pick CAD/USD + raw capture)
+  → POST /api/desk/job-leads
+  → job_leads
+  → Admin Job Inbox → (optional later) AI polish → convert to companies/jobs
 ```
 
-Does not scrape sites in the background. Capture is user-initiated on a page you already opened.
+Currency is an **operator choice** at save time (Canada → CAD, US → USD). Default CAD; last pick is remembered in extension storage.
+
+User-initiated only. No background crawling.

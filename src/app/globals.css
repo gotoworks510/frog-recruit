@@ -1,31 +1,36 @@
 @import "tailwindcss";
 
 /*
- * Frog brand tokens for customer-facing surfaces (public landing, candidate,
- * employer). Primary = teal #4EBFA5, secondary = frog green #5E9E54.
- * Mirrors frog-admin-kit/tokens/frog-tokens.css (public sites use teal-first).
+ * Frog Recruit customer-facing tokens (public, candidate, employer).
+ * Forest green brand surface + cream paper. Admin keeps its own shell.
  */
 @theme {
-  --color-primary: #4ebfa5;
-  --color-primary-hover: #3aa189;
+  --color-primary: #1a3d2e;
+  --color-primary-hover: #143226;
   --color-primary-foreground: #ffffff;
-  --color-frog: #5e9e54;
-  --color-frog-dark: #4a8043;
+  --color-frog: #2a5a45;
+  --color-frog-dark: #1a3d2e;
 
-  --color-ink: #1f1f1f;
+  --color-brand: #0f3024;
+  --color-brand-soft: #e8f0eb;
+  --color-mint: #dceee4;
+  --color-mint-deep: #c5e0d2;
+
+  --color-ink: #1a2420;
   --color-paper: #ffffff;
-  --color-muted: #6b7280;
-  --color-surface: #f8faf9;
-  --color-surface-2: #f1f5f0;
-  --color-line: #e4e7e4;
-  --color-accent-soft: #eef7e8;
+  --color-muted: #6b756f;
+  --color-surface: #f7f5ed;
+  --color-surface-2: #efece3;
+  --color-line: #ddd9cf;
+  --color-accent-soft: #e8f0eb;
 
   --color-danger: #e2543b;
   --color-warning: #fbbf24;
 
   --font-sans: var(--font-inter), "Hiragino Kaku Gothic ProN", "Yu Gothic",
     "Meiryo", sans-serif;
-  --font-heading: var(--font-poppins), "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-heading: var(--font-source-serif), "Hiragino Mincho ProN", "Yu Mincho",
+    serif;
 
   --radius: 0.5rem;
 }
@@ -47,6 +52,18 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.01em;
 }
 
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.label-caps {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
 /* Reusable on-brand primitives */
 .btn-primary {
   display: inline-flex;
@@ -64,10 +81,43 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--color-primary-hover);
 }
 
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-line);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.btn-outline:hover {
+  background-color: var(--color-surface-2);
+  border-color: var(--color-muted);
+}
+
 .card {
   background-color: var(--color-paper);
   border: 1px solid var(--color-line);
   border-radius: 0.75rem;
+}
+
+.input-field {
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-line);
+  background-color: var(--color-paper);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+}
+.input-field:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 /* Rendered Markdown (Frog recommendation strengths / considerations). */

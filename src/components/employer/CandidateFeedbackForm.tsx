@@ -17,9 +17,6 @@ interface Props {
   saved?: boolean;
 }
 
-const textareaCls =
-  "w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
-
 /**
  * Low-friction employer feedback widget. One click on Interested / Maybe /
  * Not interested is enough; contextual fields (interview + questions, or
@@ -50,7 +47,7 @@ export function CandidateFeedbackForm({
   const positive = interest === "interested" || interest === "maybe";
 
   return (
-    <form action={action} className="card p-6">
+    <form action={action} className="card p-5 shadow-sm sm:p-6">
       <input type="hidden" name="candidateProfileId" value={candidateProfileId} />
       <input type="hidden" name="interest" value={interest ?? ""} />
       <input
@@ -59,9 +56,10 @@ export function CandidateFeedbackForm({
         value={JSON.stringify(reasons)}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-bold text-ink">
-          Your take on {candidateName}
+      <p className="label-caps">Your next step</p>
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
+        <h2 className="text-lg font-semibold text-ink">
+          Would you like to connect?
         </h2>
         {saved ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-frog-dark">
@@ -76,12 +74,14 @@ export function CandidateFeedbackForm({
         )}
       </div>
       <p className="mt-1 text-sm text-muted">
-        Let Frog know where you stand — one click is enough, and you can update it
-        anytime.
+        Share your take with Frog after reviewing this introduction
+        {candidateName ? ` for ${candidateName}` : ""}.
       </p>
 
-      {/* Primary interest — big one-click buttons */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <fieldset className="mt-5 space-y-2">
+        <legend className="mb-2 text-sm font-medium text-ink">
+          Your feedback
+        </legend>
         {INTEREST_OPTIONS.map((opt) => {
           const active = interest === opt.value;
           return (
@@ -90,14 +90,18 @@ export function CandidateFeedbackForm({
               type="button"
               onClick={() => setInterest(opt.value)}
               aria-pressed={active}
-              className={interestBtnCls(opt.value, active)}
+              className={`flex w-full flex-col rounded-lg border px-4 py-3 text-left transition ${
+                active
+                  ? "border-brand bg-mint ring-1 ring-brand"
+                  : "border-line bg-paper hover:border-brand/40"
+              }`}
             >
-              <span className="block text-base font-semibold">{opt.label}</span>
-              <span className="mt-0.5 block text-xs opacity-80">{opt.hint}</span>
+              <span className="text-sm font-semibold text-ink">{opt.label}</span>
+              <span className="mt-0.5 text-xs text-muted">{opt.hint}</span>
             </button>
           );
         })}
-      </div>
+      </fieldset>
 
       {/* Contextual: interested / maybe */}
       {positive && (
@@ -109,14 +113,14 @@ export function CandidateFeedbackForm({
               value="1"
               checked={wantsInterview}
               onChange={(e) => setWantsInterview(e.target.checked)}
-              className="h-4 w-4 accent-primary"
+              className="h-4 w-4 accent-brand"
             />
             <span className="font-medium">
               I&apos;d like to interview this candidate
             </span>
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-ink">
+            <span className="mb-1.5 block text-sm font-medium text-ink">
               Anything you&apos;d like us to ask, or more info you need?{" "}
               <span className="font-normal text-muted">(optional)</span>
             </span>
@@ -125,7 +129,7 @@ export function CandidateFeedbackForm({
               rows={3}
               defaultValue={initial?.questionsMd ?? ""}
               placeholder="e.g. Ask about Python depth at scale; share notice period and comp expectations…"
-              className={textareaCls}
+              className="input-field"
             />
           </label>
         </div>
@@ -149,8 +153,8 @@ export function CandidateFeedbackForm({
                     aria-pressed={on}
                     className={`rounded-full border px-3 py-1.5 text-xs transition ${
                       on
-                        ? "border-primary bg-primary text-white"
-                        : "border-line bg-surface text-ink hover:border-primary"
+                        ? "border-brand bg-brand text-white"
+                        : "border-line bg-surface text-ink hover:border-brand"
                     }`}
                   >
                     {r.label}
@@ -160,7 +164,7 @@ export function CandidateFeedbackForm({
             </div>
           </div>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-ink">
+            <span className="mb-1.5 block text-sm font-medium text-ink">
               Anything else?{" "}
               <span className="font-normal text-muted">(optional)</span>
             </span>
@@ -169,45 +173,28 @@ export function CandidateFeedbackForm({
               rows={2}
               defaultValue={initial?.declineNote ?? ""}
               placeholder="A sentence on what would have made this a yes helps us send better matches."
-              className={textareaCls}
+              className="input-field"
             />
           </label>
         </div>
       )}
 
-      <div className="mt-5 flex items-center gap-3">
+      <div className="mt-5 space-y-2">
         <button
           type="submit"
           disabled={!interest}
-          className="btn-primary px-6 py-2.5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-primary w-full px-6 py-2.5 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {initial ? "Update" : "Submit"} feedback
+          {initial ? "Update feedback" : "Submit feedback"}
         </button>
-        {!interest && (
-          <span className="text-xs text-muted">
-            Pick an option above to continue.
-          </span>
-        )}
+        <p className="text-center text-xs text-muted">
+          {!interest
+            ? "Pick an option above to continue."
+            : "You can update your feedback at any time."}
+        </p>
       </div>
     </form>
   );
-}
-
-function interestBtnCls(value: InterestLevel, active: boolean): string {
-  const base = "rounded-xl border px-4 py-3 text-left transition";
-  if (!active) {
-    return `${base} border-line bg-surface text-ink hover:border-primary hover:bg-surface-2`;
-  }
-  switch (value) {
-    case "interested":
-      return `${base} border-emerald-500 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-500`;
-    case "maybe":
-      return `${base} border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-500`;
-    case "not_interested":
-      return `${base} border-red-400 bg-red-50 text-red-700 ring-1 ring-red-400`;
-    default:
-      return base;
-  }
 }
 
 function CheckIcon() {

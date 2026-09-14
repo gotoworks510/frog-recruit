@@ -67,7 +67,9 @@ export default async function SharingPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-ink">Sharing settings</h1>
+      <h1 className="font-heading text-3xl font-semibold tracking-tight text-brand">
+        Sharing settings
+      </h1>
 
       <div className="card p-6">
         <h2 className="font-semibold text-ink">Sharing with hiring companies</h2>

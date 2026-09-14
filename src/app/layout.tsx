@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Poppins } from "next/font/google";
+import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,10 +8,11 @@ const inter = Inter({
   display: "swap",
 });
 
-const poppins = Poppins({
+const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-poppins",
+  weight: ["400", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-source-serif",
   display: "swap",
 });
 
@@ -30,7 +31,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
+    <html lang="en" className={`${inter.variable} ${sourceSerif.variable}`}>
       <body>{children}</body>
     </html>
   );

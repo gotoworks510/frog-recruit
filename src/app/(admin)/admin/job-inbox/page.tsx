@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { desc, ne } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
 import { jobLeads } from "@/lib/db/schema";
@@ -13,7 +13,6 @@ const inputCls =
 const STATUS_JA: Record<string, string> = {
   new: "新規",
   triaged: "選別済",
-  converted: "求人化済",
   rejected: "見送り",
   snoozed: "保留",
 };
@@ -30,7 +29,7 @@ export default async function JobInboxPage({
   if (!enabled) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-ink">Job Inbox</h1>
+        <h1 className="text-2xl font-bold text-ink">求人Inbox</h1>
         <div className="card p-6 text-sm text-muted">
           Job Inboxは開発用フラグで無効です。.env.local に{" "}
           <code className="rounded bg-surface-2 px-1">JOB_INBOX_ENABLED=1</code> と{" "}
@@ -42,9 +41,11 @@ export default async function JobInboxPage({
   }
 
   const db = await getD1Db();
+  // Converted leads are deleted on convert; filter any legacy rows out of the queue view.
   let rows = await db
     .select()
     .from(jobLeads)
+    .where(ne(jobLeads.status, "converted"))
     .orderBy(desc(jobLeads.score), desc(jobLeads.capturedAt))
     .all();
   if (statusFilter && STATUS_JA[statusFilter]) {
@@ -55,13 +56,13 @@ export default async function JobInboxPage({
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Job Inbox</h1>
+          <h1 className="text-2xl font-bold text-ink">求人Inbox</h1>
           <p className="mt-1 text-sm text-muted">
-            Chrome拡張または手動URLから取り込んだ求人リード。Client Opsの入口プロトタイプです。
+            Chrome拡張または手動URLから取り込んだ求人リード。求人化したものはInboxから消え、企業・求人側に残ります。
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
-          {["", "new", "triaged", "converted", "rejected", "snoozed"].map((s) => (
+          {["", "new", "triaged", "rejected", "snoozed"].map((s) => (
             <Link
               key={s || "all"}
               href={s ? `/admin/job-inbox?status=${s}` : "/admin/job-inbox"}
@@ -140,6 +141,7 @@ export default async function JobInboxPage({
                   <p className="text-xs text-muted">
                     {r.companyNameRaw || "—"}
                     {r.locationRaw ? ` · ${r.locationRaw}` : ""}
+                    {` · ${r.salaryCurrency || "CAD"}`}
                   </p>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted">{r.source}</td>
@@ -171,6 +173,10 @@ export default async function JobInboxPage({
 
       <div className="rounded-md border border-dashed border-line p-4 text-xs text-muted">
         <p className="font-medium text-ink">Chrome拡張の接続</p>
+        <p className="mt-1">
+          拡張は<strong>取り込み専用</strong>です（タイトル・会社・勤務地・本文の生データ）。
+          読みやすい整形は後でAI／手動で行う想定です。
+        </p>
         <ol className="mt-2 list-decimal space-y-1 pl-4">
           <li>
             <code className="rounded bg-surface-2 px-1">chrome-extension/</code>{" "}

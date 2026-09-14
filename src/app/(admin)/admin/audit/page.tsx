@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
@@ -22,22 +23,28 @@ export default async function AdminAudit() {
       actorRole: viewAudit.actorRole,
       companyName: companies.name,
       candidateName: candidateProfiles.displayName,
+      candidateUserId: candidateProfiles.userId,
       ip: viewAudit.ip,
       createdAt: viewAudit.createdAt,
     })
     .from(viewAudit)
     .leftJoin(companies, eq(viewAudit.companyId, companies.id))
-    .leftJoin(candidateProfiles, eq(viewAudit.candidateProfileId, candidateProfiles.id))
+    .leftJoin(
+      candidateProfiles,
+      eq(viewAudit.candidateProfileId, candidateProfiles.id)
+    )
     .orderBy(desc(viewAudit.createdAt))
     .limit(200)
     .all();
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-ink">監査ログ</h1>
-      <p className="text-sm text-muted">
-        候補者情報・レジュメの閲覧履歴（直近200件）。追記専用です。
-      </p>
+      <div>
+        <h1 className="text-2xl font-bold text-ink">監査ログ</h1>
+        <p className="text-sm text-muted">
+          候補者情報・レジュメの閲覧履歴（直近200件）。追記専用です。候補者名から詳細へ移動できます。
+        </p>
+      </div>
 
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
@@ -60,10 +67,25 @@ export default async function AdminAudit() {
             )}
             {rows.map((r, i) => (
               <tr key={i} className="border-t border-line">
-                <td className="px-4 py-2 text-muted">{formatDateTime(r.createdAt)}</td>
+                <td className="px-4 py-2 text-muted">
+                  {formatDateTime(r.createdAt)}
+                </td>
                 <td className="px-4 py-2 text-ink">{r.companyName ?? "—"}</td>
-                <td className="px-4 py-2 text-ink">{AUDIT_LABEL[r.action] ?? r.action}</td>
-                <td className="px-4 py-2 text-ink">{r.candidateName ?? "—"}</td>
+                <td className="px-4 py-2 text-ink">
+                  {AUDIT_LABEL[r.action] ?? r.action}
+                </td>
+                <td className="px-4 py-2 text-ink">
+                  {r.candidateUserId ? (
+                    <Link
+                      href={`/admin/candidates/${r.candidateUserId}`}
+                      className="text-primary hover:underline"
+                    >
+                      {r.candidateName ?? "候補者"}
+                    </Link>
+                  ) : (
+                    r.candidateName ?? "—"
+                  )}
+                </td>
                 <td className="px-4 py-2 text-xs text-muted">{r.ip ?? "—"}</td>
               </tr>
             ))}

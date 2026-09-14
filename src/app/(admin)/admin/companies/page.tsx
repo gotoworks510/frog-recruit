@@ -4,7 +4,6 @@ import { getD1Db } from "@/lib/db/client";
 import { companies, jobs } from "@/lib/db/schema";
 import {
   createCompany,
-  createJob,
   updateCompany,
   deleteCompany,
   updateJob,
@@ -26,7 +25,12 @@ export default async function AdminCompanies() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-ink">企業・求人</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-ink">企業・求人</h1>
+        <p className="mt-1 text-sm text-muted">
+          求人の新規追加は求人Inbox（Chrome拡張）から行います。ここでは編集・削除のみです。
+        </p>
+      </div>
 
       {/* Create company */}
       <form action={createCompany} className="card grid gap-4 p-6 sm:grid-cols-2">
@@ -118,33 +122,11 @@ export default async function AdminCompanies() {
                   </div>
                 ))}
                 {coJobs.length === 0 && (
-                  <p className="text-xs text-muted">求人はまだありません。</p>
+                  <p className="text-xs text-muted">
+                    求人はまだありません。求人Inboxから変換してください。
+                  </p>
                 )}
               </div>
-
-              {/* Add job */}
-              <details className="mt-4">
-                <summary className="cursor-pointer text-sm text-primary">求人を追加</summary>
-                <form action={createJob} className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <input type="hidden" name="companyId" value={co.id} />
-                  <input name="title" placeholder="求人タイトル *" required className={inputCls} />
-                  <input name="location" placeholder="勤務地" className={inputCls} />
-                  <input name="salaryMin" type="number" placeholder="年収下限" className={inputCls} />
-                  <input name="salaryMax" type="number" placeholder="年収上限" className={inputCls} />
-                  <input name="workAuthRequirement" placeholder="就労資格要件" className={inputCls} />
-                  <select name="salaryCurrency" defaultValue="USD" className={inputCls}>
-                    <option value="USD">USD</option>
-                    <option value="CAD">CAD</option>
-                    <option value="JPY">JPY</option>
-                  </select>
-                  <textarea name="description" placeholder="求人内容" rows={2} className={`${inputCls} sm:col-span-2`} />
-                  <div className="sm:col-span-2">
-                    <button className="rounded-md border border-line px-4 py-2 text-sm font-medium hover:bg-surface-2">
-                      求人を追加
-                    </button>
-                  </div>
-                </form>
-              </details>
 
               {/* Edit company */}
               <details className="mt-2 border-t border-line pt-3">

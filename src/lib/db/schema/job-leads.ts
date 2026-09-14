@@ -30,6 +30,10 @@ export const jobLeads = sqliteTable(
     locationRaw: text("location_raw"),
     descriptionRaw: text("description_raw"),
     salaryRaw: text("salary_raw"),
+    /** Capture-time market currency (CAD Canada / USD US). Used on convert. */
+    salaryCurrency: text("salary_currency", { enum: ["CAD", "USD"] })
+      .notNull()
+      .default("CAD"),
     postedAtRaw: text("posted_at_raw"),
     status: text("status", {
       enum: ["new", "triaged", "converted", "rejected", "snoozed"],
