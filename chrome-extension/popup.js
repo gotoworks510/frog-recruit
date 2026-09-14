@@ -247,6 +247,30 @@ function extractJobFromPage() {
     title = null;
   }
 
+  // LinkedIn SPA often hides job fields from querySelector, but document.title
+  // is reliable: "Software Engineer, Products | Jetson | LinkedIn"
+  const docTitle = (document.title || "").replace(/\s+/g, " ").trim();
+  if (source === "linkedin" && docTitle) {
+    const parts = docTitle.split("|").map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2 && /^linkedin$/i.test(parts[parts.length - 1])) {
+      if (!title) title = parts[0] || null;
+      if (!companyName && parts[1] && !/^linkedin$/i.test(parts[1])) {
+        companyName = parts[1];
+      }
+    } else if (!title && docTitle && !/^linkedin$/i.test(docTitle)) {
+      title = docTitle;
+    }
+  } else if (!title && docTitle) {
+    title = docTitle;
+  }
+
+  if (!description) {
+    description =
+      meta('meta[property="og:description"]') ||
+      meta('meta[name="description"]') ||
+      null;
+  }
+
   return {
     sourceUrl,
     source,
@@ -337,7 +361,11 @@ document.getElementById("save").addEventListener("click", async () => {
         description: null,
         salary: null,
         postedAt: null,
-        raw: { fallback: true, pageUrl: tab.url },
+        raw: {
+          fallback: true,
+          pageUrl: tab.url,
+          titleDocument: tab.title || null,
+        },
       };
     }
 
@@ -357,13 +385,10 @@ document.getElementById("save").addEventListener("click", async () => {
       return;
     }
 
-    const bits = [
-      data.duplicate ? "Updated existing lead" : "Saved",
-      `score ${data.score}`,
-    ];
-    if (payload.title) bits.push(payload.title);
-    if (payload.companyName) bits.push(payload.companyName);
-    status.textContent = `${bits.join(" · ")}\n${data.inboxUrl}`;
+    const label = [data.title, data.companyName].filter(Boolean).join(" @ ");
+    status.textContent = label
+      ? `${data.duplicate ? "Updated" : "Saved"}: ${label}\nscore ${data.score}\n${data.inboxUrl}`
+      : `${data.duplicate ? "Updated existing lead" : "Saved"} (score ${data.score}).\n${data.inboxUrl}`;
   } catch (err) {
     status.textContent = String(err?.message || err);
   } finally {

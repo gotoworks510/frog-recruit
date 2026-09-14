@@ -7,6 +7,10 @@ import {
   isJobInboxEnabled,
 } from "@/lib/job-inbox/config";
 import { detectSourceFromUrl, scoreJobLead } from "@/lib/job-inbox/score";
+import {
+  enrichCaptureFromRaw,
+  normalizeJobSourceUrl,
+} from "@/lib/job-inbox/enrich";
 
 export const dynamic = "force-dynamic";
 
@@ -96,13 +100,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const sourceUrl = body.sourceUrl?.trim();
-  if (!sourceUrl) {
+  const sourceUrlRaw = body.sourceUrl?.trim();
+  if (!sourceUrlRaw) {
     return json({ error: "sourceUrl is required" }, { status: 400, origin });
   }
+
+  let sourceUrl: string;
   try {
-    // Validate URL shape
-    new URL(sourceUrl);
+    new URL(sourceUrlRaw);
+    sourceUrl = normalizeJobSourceUrl(sourceUrlRaw);
   } catch {
     return json({ error: "sourceUrl must be a valid URL" }, { status: 400, origin });
   }
@@ -116,12 +122,24 @@ export async function POST(request: Request) {
       ? body.source
       : detectSourceFromUrl(sourceUrl);
 
+  // LinkedIn often fails DOM/JSON-LD in logged-in SPA views, but document.title
+  // is reliable ("Role | Company | LinkedIn"). Enrich server-side from raw.
+  const enriched = enrichCaptureFromRaw(
+    {
+      titleRaw: body.title?.trim() || null,
+      companyNameRaw: body.companyName?.trim() || null,
+      locationRaw: body.location?.trim() || null,
+      descriptionRaw: body.description?.trim() || null,
+    },
+    body.raw
+  );
+
   const incoming = {
     externalId: body.externalId?.trim() || null,
-    companyNameRaw: body.companyName?.trim() || null,
-    titleRaw: body.title?.trim() || null,
-    locationRaw: body.location?.trim() || null,
-    descriptionRaw: body.description?.trim() || null,
+    titleRaw: enriched.titleRaw,
+    companyNameRaw: enriched.companyNameRaw,
+    locationRaw: enriched.locationRaw,
+    descriptionRaw: enriched.descriptionRaw,
     salaryRaw: body.salary?.trim() || null,
     postedAtRaw: body.postedAt?.trim() || null,
   };
@@ -136,7 +154,6 @@ export async function POST(request: Request) {
   const now = new Date();
   const rawPayloadJson = body.raw != null ? JSON.stringify(body.raw) : null;
 
-  /** Prefer non-empty incoming; treat our own stub text as empty so a real re-save can replace it. */
   function isStub(value: string | null | undefined): boolean {
     if (!value) return true;
     return /open on LinkedIn to refresh|Captured from LinkedIn|Re-save from the job detail/i.test(
@@ -184,7 +201,6 @@ export async function POST(request: Request) {
         score,
         rawPayloadJson: rawPayloadJson ?? existing.rawPayloadJson,
         updatedAt: now,
-        // Keep converted/rejected status; revive snoozed/new on re-capture.
         status:
           existing.status === "snoozed" || existing.status === "new"
             ? "new"
@@ -199,23 +215,19 @@ export async function POST(request: Request) {
         duplicate: true,
         status: existing.status,
         score,
+        title: titleRaw,
+        companyName: companyNameRaw,
         inboxUrl: `http://localhost:3005/admin/job-inbox/${existing.id}`,
       },
       { origin }
     );
   }
 
-  const titleRaw = incoming.titleRaw;
-  const companyNameRaw = incoming.companyNameRaw;
-  const locationRaw = incoming.locationRaw;
-  const descriptionRaw = incoming.descriptionRaw;
-  const salaryRaw = incoming.salaryRaw;
-  const postedAtRaw = incoming.postedAtRaw;
   const score = scoreJobLead({
-    title: titleRaw,
-    location: locationRaw,
-    description: descriptionRaw,
-    company: companyNameRaw,
+    title: incoming.titleRaw,
+    location: incoming.locationRaw,
+    description: incoming.descriptionRaw,
+    company: incoming.companyNameRaw,
   });
 
   const id = crypto.randomUUID();
@@ -223,13 +235,13 @@ export async function POST(request: Request) {
     id,
     source,
     sourceUrl,
-    externalId: body.externalId?.trim() || null,
-    companyNameRaw,
-    titleRaw,
-    locationRaw,
-    descriptionRaw,
-    salaryRaw,
-    postedAtRaw,
+    externalId: incoming.externalId,
+    companyNameRaw: incoming.companyNameRaw,
+    titleRaw: incoming.titleRaw,
+    locationRaw: incoming.locationRaw,
+    descriptionRaw: incoming.descriptionRaw,
+    salaryRaw: incoming.salaryRaw,
+    postedAtRaw: incoming.postedAtRaw,
     status: "new",
     score,
     rawPayloadJson,
@@ -245,6 +257,8 @@ export async function POST(request: Request) {
       duplicate: false,
       status: "new",
       score,
+      title: incoming.titleRaw,
+      companyName: incoming.companyNameRaw,
       inboxUrl: `http://localhost:3005/admin/job-inbox/${id}`,
     },
     { origin }
