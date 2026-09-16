@@ -29,6 +29,7 @@ export const candidateProfiles = sqliteTable("candidate_profiles", {
       "opt",
       "ca_pr",
       "ca_citizen",
+      "iec",
       "needs_sponsorship",
       "other",
     ],

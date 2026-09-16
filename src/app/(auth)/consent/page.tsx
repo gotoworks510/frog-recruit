@@ -10,6 +10,7 @@ const CONSENT_VERSION = "2026-06-22";
 
 export default async function ConsentPage() {
   const session = await requireCandidatePreConsent();
+  if (!session.user.termsAcceptedAt) redirect("/legal");
   if (session.user.privacyConsentedAt) redirect("/me");
 
   async function agree() {

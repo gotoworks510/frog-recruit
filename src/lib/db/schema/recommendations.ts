@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
 import { candidateProfiles } from "./candidates";
 import { jobs, companies } from "./companies";
 
@@ -14,6 +14,7 @@ import { jobs, companies } from "./companies";
  *  - visibility: internal_only → shared   (audience)
  * Only a row that is BOTH `published` AND `shared` is surfaced to the matching
  * company, and `internalNotesMd` is NEVER serialized to an employer response.
+ * `frogScore` is employer-facing only — never show it on candidate surfaces.
  */
 export const recommendations = sqliteTable(
   "recommendations",
@@ -30,6 +31,8 @@ export const recommendations = sqliteTable(
     }),
     // Optional position/job context at that company.
     jobId: text("job_id").references(() => jobs.id, { onDelete: "set null" }),
+    /** Frog fit score for this company (0–10). Employer-facing only. */
+    frogScore: real("frog_score"),
     strengthsMd: text("strengths_md"), // 推薦ポイント — shown to employer
     considerationsMd: text("considerations_md"), // 勧められない点 — shown to employer
     internalNotesMd: text("internal_notes_md"), // Frog-staff only — never to employer

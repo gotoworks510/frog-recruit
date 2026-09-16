@@ -2,6 +2,7 @@ import type { EmployerCandidateView } from "@/lib/employer/candidate-dto";
 import { WORK_AUTH_LABELS, ENGLISH_LABELS } from "@/lib/candidate/profile";
 import { formatRange } from "@/lib/date";
 import { Markdown } from "@/components/ui/Markdown";
+import { FrogScoreBadge } from "@/components/employer/FrogScoreBadge";
 
 interface CandidateViewProps {
   view: EmployerCandidateView;
@@ -128,12 +129,19 @@ export function CandidateView({
         )}
       </header>
 
-      {view.recommendation && (
+      {mode !== "preview" && view.recommendation && (
         <section className="rounded-2xl bg-mint px-6 py-7 sm:px-8">
-          <p className="label-caps text-frog-dark/70">Frog&apos;s perspective</p>
-          <h2 className="mt-2 font-heading text-2xl font-semibold text-brand">
-            Why we recommend {firstName}
-          </h2>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="label-caps text-frog-dark/70">Frog&apos;s perspective</p>
+              <h2 className="mt-2 font-heading text-2xl font-semibold text-brand">
+                Why we recommend {firstName}
+              </h2>
+            </div>
+            {view.recommendation.frogScore != null && (
+              <FrogScoreBadge score={view.recommendation.frogScore} size="lg" />
+            )}
+          </div>
           <div className="mt-6 space-y-5">
             <div>
               <h3 className="text-sm font-semibold text-ink">Strengths</h3>
@@ -157,8 +165,9 @@ export function CandidateView({
         <section>
           <h2 className="text-lg font-semibold text-ink">Profile & resume</h2>
           <p className="mt-1 text-sm text-muted">
-            Review the candidate&apos;s experience alongside Frog&apos;s
-            recommendation.
+            {mode === "preview"
+              ? "Review the experience and links you share with hiring teams."
+              : "Review the candidate\u2019s experience alongside Frog\u2019s recommendation."}
           </p>
           <a
             href={resumeHref}

@@ -31,10 +31,10 @@ Frog が見極めた**海外就職候補者**を採用企業へ紹介する3者�
 - **employer 認証は users テーブルに統合**（`auth_provider='credentials'` + PBKDF2 `password_hash`/`password_salt`）。運用メタは `employer_accounts`。
 - **推薦は会社別**（`recommendations.companyId`、null=汎用フォールバック）。候補者ごとに「紹介する会社」単位で推薦文を作成し、企業は自社向け推薦（無ければ汎用）を見る。`buildEmployerCandidateView(db, profileId, { companyId })` が会社一致→汎用の順で選択。admin の `/admin/candidates/[id]` は会社別カード＋会社セレクタ＋会社別プレビュー。
 - **行レベル認可スパイン = `requireGrant`/`getEffectiveGrant`**（`src/lib/auth/grant.ts`）。企業の候補者参照は全て通す。**有効アクセス = grant 有効（未失効・未期限切れ）AND 候補者の consent 有効 AND grant の会社向け（または汎用）の published+shared recommendation が存在**。一覧は `listGrantedCandidateIds` で同条件に絞る。
-- **PII 最小化**: 企業へ返すのは `src/lib/employer/candidate-dto.ts`（`buildEmployerCandidateView`）の DTO のみ。`internalNotesMd`・生メール等は**絶対に含めない**。recommendation は published+shared のみ。
+- **PII 最小化**: 企業へ返すのは `src/lib/employer/candidate-dto.ts`（`buildEmployerCandidateView`）の DTO のみ。`internalNotesMd`・生メール等は**絶対に含めない**。recommendation は published+shared のみ。**`frogScore`（オススメ度）は企業向けのみ。候補者 `/me`・preview には出さない**（`CandidateView` の `mode="preview"` で推薦ブロックごと非表示）。
 - **レジュメ配信**: 企業向けは `(employer)/portal/candidates/[id]/resume/route.ts` のみ。`requireGrant` → `pdf-lib` で**企業名＋閲覧者＋日時の透かし**を毎回焼き込み → `view_audit` 追記 → ストリーム。durable URL は作らない。透かしは抑止でDRMではない。
 - **監査 `view_audit` は追記専用**（`src/lib/audit/log.ts`）。削除経路なし。
-- **🌐 言語ポリシー（2026-06-22 オーナー決定）**: ユーザーの大半が英語圏。**公開 / 候補者(`/me`) / 採用企業(`/portal`) 向け面・候補者/企業宛メール（`src/lib/email/messages.ts`）・`CandidateView`・`profile.ts` のラベルは英語**。**管理者(`/admin`) 専用ページと `src/lib/admin/actions.ts` は日本語のまま**。新規 UI 追加時もこの線引きを守る。`react/no-unescaped-entities` は eslint で off（英語のアポストロフィでビルドが落ちるため）。
+- **🌐 言語ポリシー（2026-06-22 オーナー決定・2026-09-15 再確認）**: ユーザーの大半が英語圏。**公開 / 候補者(`/me`) / 採用企業(`/portal`) 向け面・フッター・プレビュー帯・候補者/企業宛メール（`src/lib/email/messages.ts`）・`CandidateView`・`profile.ts` のラベル・ユーザー向けAPIエラーは英語のみ。日本語UI文字列を出さない。** **管理者(`/admin`) 専用ページと `src/lib/admin/actions.ts` は日本語のまま**（admin専用ラベル定数の JA も可）。新規 UI 追加時もこの線引きを守る。`react/no-unescaped-entities` は eslint で off（英語のアポストロフィでビルドが落ちるため）。
 - **⚠️ NextAuth は遅延設定（関数形）必須**（`src/lib/auth/auth.ts` の `NextAuth(() => ({...}))`）。OpenNext/Cloudflare では **Worker シークレット（`GOOGLE_CLIENT_SECRET`/`AUTH_SECRET`）は process.env にリクエスト時のみ注入**され、モジュール読込時は未定義。静的設定だと `Google({clientSecret: process.env...})` が undefined を掴み、**コールバックで `error=Configuration`（"There is a problem with the server configuration"）**になる。`[vars]`（`GOOGLE_CLIENT_ID` 等）はモジュール読込時から見えるので clientId だけ正しく出てしまい紛らわしい。関数形にして毎リクエスト読むことで解消（2026-06-22 修正）。
 
 ## 主要ファイル早見表

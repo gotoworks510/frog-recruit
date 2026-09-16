@@ -33,6 +33,9 @@ export const users = sqliteTable("users", {
   // Links an employer user to its company (null for admin / candidate).
   employerCompanyId: text("employer_company_id"),
   privacyConsentedAt: integer("privacy_consented_at", { mode: "timestamp" }),
+  /** One-time acceptance of Terms of Use + Privacy Policy (first login). */
+  termsAcceptedAt: integer("terms_accepted_at", { mode: "timestamp" }),
+  termsVersion: text("terms_version"),
   lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()

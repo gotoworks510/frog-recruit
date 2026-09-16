@@ -30,12 +30,12 @@ export async function GET(
     .where(eq(candidateProfiles.id, id))
     .get();
   if (!profile?.resumeKey) {
-    return NextResponse.json({ error: "レジュメが見つかりません" }, { status: 404 });
+    return NextResponse.json({ error: "Resume not found" }, { status: 404 });
   }
 
   const object = await getObject(profile.resumeKey);
   if (!object) {
-    return NextResponse.json({ error: "レジュメが見つかりません" }, { status: 404 });
+    return NextResponse.json({ error: "Resume not found" }, { status: 404 });
   }
 
   // Resolve company name for the watermark.

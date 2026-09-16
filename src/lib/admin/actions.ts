@@ -27,6 +27,7 @@ import {
   buildCandidateCredentialsEmail,
   buildEmployerCredentialsEmail,
 } from "@/lib/email/messages";
+import { parseFrogScore } from "@/lib/employer/frog-score";
 import {
   INTRO_STATUSES,
   type IntroStatus,
@@ -122,6 +123,7 @@ export async function saveRecommendation(formData: FormData) {
   const strengthsMd = str(formData.get("strengthsMd"));
   const considerationsMd = str(formData.get("considerationsMd"));
   const internalNotesMd = str(formData.get("internalNotesMd"));
+  const frogScore = parseFrogScore(formData.get("frogScore"));
   const status = (str(formData.get("status")) ?? "draft") as "draft" | "published";
   const visibility = (str(formData.get("visibility")) ?? "internal_only") as
     | "internal_only"
@@ -131,6 +133,7 @@ export async function saveRecommendation(formData: FormData) {
   const setVals = {
     companyId,
     jobId,
+    frogScore,
     strengthsMd,
     considerationsMd,
     internalNotesMd,

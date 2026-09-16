@@ -44,6 +44,9 @@ export async function requireCandidateReady(): Promise<{
   if (acct?.mustReset && !isViewAsSession(session)) {
     redirect("/me/account/password");
   }
+  if (!session.user.termsAcceptedAt && !isViewAsSession(session)) {
+    redirect("/legal");
+  }
   if (!session.user.privacyConsentedAt) {
     redirect("/consent");
   }

@@ -87,6 +87,7 @@ export const WORK_AUTH_LABELS: Record<string, string> = {
   opt: "OPT",
   ca_pr: "Canada PR",
   ca_citizen: "Canadian Citizen",
+  iec: "IEC (Canada)",
   needs_sponsorship: "Needs Sponsorship",
   other: "Other",
 };

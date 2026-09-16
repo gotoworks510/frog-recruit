@@ -99,7 +99,7 @@ export default async function EmployerCandidateDetail({
             candidateName={view.displayName ?? "this candidate"}
             initial={initialFeedback}
             action={saveCandidateFeedback}
-            saved={fb === "saved"}
+            saved={fb === "saved" || fb === "interested"}
           />
         </aside>
       </div>

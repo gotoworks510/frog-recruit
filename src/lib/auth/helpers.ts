@@ -68,6 +68,17 @@ export async function requireAdmin(): Promise<Session> {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.role !== "admin") redirect(roleHome(session.user.role));
+  if (!session.user.termsAcceptedAt) redirect("/legal");
+  return session;
+}
+
+/**
+ * Logged-in user before Terms acceptance (used by /legal itself).
+ * Does not use view-as overlay — acceptance is always for the real account.
+ */
+export async function requireLoggedInPreTerms(): Promise<Session> {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
   return session;
 }
 

@@ -7,6 +7,7 @@ declare module "next-auth" {
     status?: string;
     companyId?: string | null;
     privacyConsentedAt?: number | null;
+    termsAcceptedAt?: number | null;
   }
 
   interface Session {
@@ -19,6 +20,7 @@ declare module "next-auth" {
       status: string;
       companyId: string | null;
       privacyConsentedAt: number | null;
+      termsAcceptedAt: number | null;
       /** Present only while an admin is previewing as this user. */
       viewAs?: {
         adminId: string;
@@ -37,5 +39,6 @@ declare module "next-auth/jwt" {
     status?: string;
     companyId?: string | null;
     privacyConsentedAt?: number | null;
+    termsAcceptedAt?: number | null;
   }
 }

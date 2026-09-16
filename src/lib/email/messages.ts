@@ -114,3 +114,39 @@ export function buildCandidateCredentialsEmail(params: {
   `,
   };
 }
+
+/**
+ * Notify a candidate that an employer expressed interest.
+ * Prompts them to contact their Frog representative — no direct employer contact.
+ */
+export function buildCandidateEmployerInterestEmail(params: {
+  name?: string | null;
+  companyName: string;
+}): RecruitEmailContent {
+  const greeting = params.name ? `Hi ${escapeHtml(params.name)},` : "Hello,";
+  const company = escapeHtml(params.companyName);
+  const portalUrl = `${baseUrl()}/me`;
+  return {
+    subject: `${params.companyName} is interested in connecting — next step with Frog`,
+    subtitle: "An introduction is moving forward",
+    bodyHtml: `
+    <p style="margin:0 0 14px;font-size:16px;">${greeting}</p>
+    <p style="margin:0 0 14px;">
+      Good news — <strong>${company}</strong> reviewed your profile through Frog
+      Recruit and expressed interest in connecting with you.
+    </p>
+    <p style="margin:0 0 14px;">
+      Please reach out to your Frog representative to talk through next steps
+      (questions, interview timing, and anything you want us to confirm with the
+      company). Don&apos;t contact the company directly unless Frog asks you to.
+    </p>
+    <p style="text-align:center;margin:28px 0;">${primaryButton(
+      portalUrl,
+      "Open your Frog Recruit home"
+    )}</p>
+    ${mintNote(
+      "You can also reply to this email if you&apos;re unsure who your Frog contact is — we&apos;ll route it."
+    )}
+  `,
+  };
+}

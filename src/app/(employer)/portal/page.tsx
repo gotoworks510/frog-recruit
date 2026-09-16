@@ -7,6 +7,7 @@ import { candidateProfiles, companies, recommendations } from "@/lib/db/schema";
 import { WORK_AUTH_LABELS } from "@/lib/candidate/profile";
 import { writeAudit } from "@/lib/audit/log";
 import { recommendationExcerpt } from "@/components/candidate/CandidateView";
+import { FrogScoreBadge } from "@/components/employer/FrogScoreBadge";
 
 export default async function EmployerPortal({
   searchParams,
@@ -55,14 +56,16 @@ export default async function EmployerPortal({
           .all()
       : [];
 
-  // Published+shared recommendations for list excerpts (company-specific, else general).
-  const recByProfile = new Map<string, string | null>();
+  // Published+shared recommendations for list excerpts + Frog score.
+  type RecMeta = { strengthsMd: string | null; frogScore: number | null };
+  const recByProfile = new Map<string, RecMeta>();
   if (ids.length > 0) {
     const recs = await db
       .select({
         candidateProfileId: recommendations.candidateProfileId,
         companyId: recommendations.companyId,
         strengthsMd: recommendations.strengthsMd,
+        frogScore: recommendations.frogScore,
       })
       .from(recommendations)
       .where(
@@ -83,18 +86,34 @@ export default async function EmployerPortal({
           : undefined) ??
         forProfile.find((r) => r.companyId === null) ??
         forProfile[0];
-      recByProfile.set(id, pick?.strengthsMd ?? null);
+      recByProfile.set(id, {
+        strengthsMd: pick?.strengthsMd ?? null,
+        frogScore: pick?.frogScore ?? null,
+      });
     }
   }
 
+  // Highest Frog score first so priority is obvious at a glance.
+  const sortedRows = [...rows].sort((a, b) => {
+    const sa = recByProfile.get(a.id)?.frogScore;
+    const sb = recByProfile.get(b.id)?.frogScore;
+    if (sa == null && sb == null) return 0;
+    if (sa == null) return 1;
+    if (sb == null) return -1;
+    return sb - sa;
+  });
+
   const countLabel =
-    rows.length === 1 ? "1 introduction" : `${rows.length} introductions`;
+    sortedRows.length === 1
+      ? "1 introduction"
+      : `${sortedRows.length} introductions`;
 
   return (
     <div className="space-y-8">
       {readonly && (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          プレビューは読み取り専用です。変更操作はできません。
+          Preview is read-only. Changes are disabled while an admin is viewing
+          as this employer.
         </div>
       )}
 
@@ -107,24 +126,26 @@ export default async function EmployerPortal({
             People worth a conversation.
           </h1>
           <p className="mt-2 text-muted">
-            Candidates selected by Frog and introduced to your company.
+            Candidates selected by Frog and introduced to your company. Sorted
+            by Frog score.
           </p>
         </div>
-        {rows.length > 0 && (
+        {sortedRows.length > 0 && (
           <span className="inline-flex w-fit rounded-full bg-mint px-3 py-1 text-xs font-semibold text-frog-dark">
             {countLabel}
           </span>
         )}
       </div>
 
-      {rows.length > 0 && (
+      {sortedRows.length > 0 && (
         <div className="rounded-lg border-l-4 border-brand bg-mint px-4 py-3 text-sm text-frog-dark">
-          A considered introduction, with context. Read Frog&apos;s
-          recommendation and points to discuss before sharing your feedback.
+          A considered introduction, with context. The Frog score is our fit
+          rating for your role (out of 10). Read the full recommendation before
+          sharing feedback.
         </div>
       )}
 
-      {rows.length === 0 ? (
+      {sortedRows.length === 0 ? (
         <div className="card p-8 text-center text-sm text-muted">
           There are no candidates available to view right now. Please wait for a
           referral from your Frog contact.
@@ -136,11 +157,12 @@ export default async function EmployerPortal({
             <span>Frog&apos;s perspective</span>
             <span className="sr-only">Action</span>
           </div>
-          {rows.map((c) => {
+          {sortedRows.map((c) => {
             const firstName =
               (c.displayName ?? "Candidate").trim().split(/\s+/)[0] ??
               "Candidate";
-            const excerpt = recommendationExcerpt(recByProfile.get(c.id));
+            const meta = recByProfile.get(c.id);
+            const excerpt = recommendationExcerpt(meta?.strengthsMd);
             return (
               <div
                 key={c.id}
@@ -153,7 +175,10 @@ export default async function EmployerPortal({
                   {c.headline && (
                     <p className="mt-0.5 text-sm text-muted">{c.headline}</p>
                   )}
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {meta?.frogScore != null && (
+                      <FrogScoreBadge score={meta.frogScore} />
+                    )}
                     {c.yearsExperience != null && (
                       <span className="rounded-full bg-mint px-2.5 py-1 text-xs font-medium text-frog-dark">
                         {c.yearsExperience} years&apos; experience

@@ -206,6 +206,7 @@ export default async function ProfileEditor({
                 <option value="opt">OPT</option>
                 <option value="ca_pr">Canada PR</option>
                 <option value="ca_citizen">Canadian Citizen</option>
+                <option value="iec">IEC (Canada)</option>
                 <option value="needs_sponsorship">Needs Sponsorship</option>
                 <option value="other">Other</option>
               </select>

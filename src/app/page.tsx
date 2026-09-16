@@ -2,6 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { SiteFooter } from "@/components/brand/SiteFooter";
+import {
+  FEE_TIERS,
+  SUBSEQUENT_HIRE_FEE_PCT,
+} from "@/lib/employer/fee-schedule";
 
 export default function LandingPage() {
   return (
@@ -10,6 +14,12 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <BrandMark href="/" variant="white" logoHeight={32} />
           <nav className="flex items-center gap-2 text-sm sm:gap-3">
+            <Link
+              href="/how-it-works"
+              className="rounded-md px-3 py-2 font-medium text-white/85 transition hover:text-white"
+            >
+              How it works
+            </Link>
             <Link
               href="/login"
               className="rounded-md px-3 py-2 font-medium text-white/85 transition hover:text-white"
@@ -293,6 +303,40 @@ export default function LandingPage() {
               Already invited? Prepare your profile →
             </Link>
           </p>
+        </div>
+      </section>
+
+      {/* Referral fees — public rate card (not repeated as a portal banner) */}
+      <section className="border-t border-line bg-paper">
+        <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
+          <p className="label-caps">Referral fees</p>
+          <h2 className="mt-3 max-w-2xl font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+            First hire free. Then five percent.
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
+            Employers pay Frog only when they engage someone we referred.
+            Candidates are never charged. The first Frog-referred hire for your
+            company is complimentary; each later hire is{" "}
+            {SUBSEQUENT_HIRE_FEE_PCT}% of first-year base pay (or, for
+            contractors, {SUBSEQUENT_HIRE_FEE_PCT}% of gross amounts during a
+            twelve-month fee period).
+          </p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {FEE_TIERS.map((tier) => (
+              <div
+                key={tier.id}
+                className="rounded-xl border border-line bg-surface px-5 py-5 sm:px-6"
+              >
+                <p className="label-caps">{tier.title}</p>
+                <p className="mt-2 font-heading text-3xl font-semibold text-brand">
+                  {tier.rateLabel}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  {tier.detail}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

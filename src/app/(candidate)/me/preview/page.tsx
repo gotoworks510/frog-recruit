@@ -23,8 +23,9 @@ export default async function PreviewPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 rounded-lg bg-mint px-4 py-3.5 text-sm text-frog-dark sm:flex-row sm:items-center sm:justify-between">
         <p>
-          You&apos;re viewing your employer preview. This shows your shared
-          profile. Frog&apos;s recommendation appears once published and shared.
+          You&apos;re viewing your employer preview — the profile fields hiring
+          teams can see. Frog&apos;s recommendation score, strengths, and points
+          to consider are only shown to companies, not to you.
         </p>
         <Link href="/me/profile" className="btn-outline shrink-0 bg-paper text-sm">
           Edit profile
@@ -32,20 +33,11 @@ export default async function PreviewPage() {
       </div>
 
       {view ? (
-        <>
-          {!view.recommendation && (
-            <p className="text-sm text-muted">
-              Note: Frog&apos;s recommendation hasn&apos;t been published yet.
-              Once it is, the strengths and points to consider will appear
-              above.
-            </p>
-          )}
-          <CandidateView
-            view={view}
-            resumeHref="/api/profile/resume"
-            mode="preview"
-          />
-        </>
+        <CandidateView
+          view={view}
+          resumeHref="/api/profile/resume"
+          mode="preview"
+        />
       ) : (
         <p className="text-muted">We couldn&apos;t generate a preview.</p>
       )}

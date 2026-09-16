@@ -48,6 +48,12 @@ export default async function EmployerLayout({
           <BrandMark href="/portal" variant="white" logoHeight={28} />
           <div className="flex items-center gap-4 text-sm">
             <span className="hidden text-white/80 sm:inline">{companyName}</span>
+            <Link
+              href="/portal/fees"
+              className="text-white/80 transition hover:text-white"
+            >
+              Fees
+            </Link>
             {!previewing && (
               <Link
                 href="/portal/account/password"
@@ -59,7 +65,7 @@ export default async function EmployerLayout({
             {previewing ? (
               <form action={exitViewAs}>
                 <button className="text-white/80 transition hover:text-white">
-                  管理画面に戻る
+                  Back to admin
                 </button>
               </form>
             ) : (

@@ -18,7 +18,7 @@ const MAGIC_BYTE_RULES: readonly MagicByteRule[] = [
   { mimeType: "image/jpeg", bytes: [0xff, 0xd8, 0xff] },
 ] as const;
 
-const INVALID_FILE_ERROR = "許可されていないファイル形式です";
+const INVALID_FILE_ERROR = "File type is not allowed";
 
 /**
  * Validate that file content's magic bytes match the declared MIME type.

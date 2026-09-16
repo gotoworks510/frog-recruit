@@ -38,7 +38,7 @@ export default async function CandidateLayout({
             {previewing ? (
               <form action={exitViewAs}>
                 <button className="text-white/80 transition hover:text-white">
-                  管理画面に戻る
+                  Back to admin
                 </button>
               </form>
             ) : (

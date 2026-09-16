@@ -6,6 +6,8 @@ if (process.env.NODE_ENV === "development") {
 }
 
 const nextConfig: NextConfig = {
+  // Hide the floating "N" badge so guide screenshots stay clean.
+  devIndicators: false,
   // Resume uploads (PDF) are streamed through the app; allow up to 10MB request bodies.
   experimental: {
     middlewareClientMaxBodySize: "10mb",

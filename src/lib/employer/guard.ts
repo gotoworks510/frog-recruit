@@ -33,6 +33,9 @@ export async function requireEmployerReady(): Promise<{
   if (acct?.mustReset && !isViewAsSession(session)) {
     redirect("/portal/account/password");
   }
+  if (!session.user.termsAcceptedAt && !isViewAsSession(session)) {
+    redirect("/legal");
+  }
 
   return { session, db };
 }

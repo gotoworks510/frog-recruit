@@ -892,6 +892,7 @@ function recommendationsCols() {
     candidateProfileId: recommendations.candidateProfileId,
     companyId: recommendations.companyId,
     jobId: recommendations.jobId,
+    frogScore: recommendations.frogScore,
     strengthsMd: recommendations.strengthsMd,
     considerationsMd: recommendations.considerationsMd,
     internalNotesMd: recommendations.internalNotesMd,
@@ -1024,6 +1025,21 @@ function RecommendationCard({
 function RecommendationFields({ rec }: { rec?: RecRow }) {
   return (
     <>
+      <label className="block max-w-xs">
+        <span className="mb-1 block text-sm font-medium text-ink">
+          Frogオススメ度（0–10・企業のみ表示）
+        </span>
+        <input
+          type="number"
+          name="frogScore"
+          min={0}
+          max={10}
+          step={0.5}
+          defaultValue={rec?.frogScore ?? ""}
+          className={inputCls}
+          placeholder="例: 8.5"
+        />
+      </label>
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-ink">
           推薦ポイント（企業に表示・Markdown 可）

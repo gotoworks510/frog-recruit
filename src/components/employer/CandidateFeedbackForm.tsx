@@ -78,6 +78,28 @@ export function CandidateFeedbackForm({
         {candidateName ? ` for ${candidateName}` : ""}.
       </p>
 
+      {(interest === "interested" || saved) && (
+        <div className="mt-4 rounded-lg border border-brand/30 bg-mint px-4 py-3 text-sm text-frog-dark">
+          {interest === "interested" ? (
+            <>
+              <p className="font-semibold">Frog will follow up with you</p>
+              <p className="mt-1 text-frog-dark/90">
+                {saved
+                  ? "A Frog representative will contact you about next steps. You don\u2019t need to email the candidate yourself."
+                  : "After you submit, a Frog representative will contact you about next steps. You don\u2019t need to email the candidate yourself."}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold">Feedback saved</p>
+              <p className="mt-1 text-frog-dark/90">
+                Thanks — Frog has your update.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       <fieldset className="mt-5 space-y-2">
         <legend className="mb-2 text-sm font-medium text-ink">
           Your feedback

@@ -162,6 +162,7 @@ export async function resolveEffectiveSession(
       status: users.status,
       companyId: users.employerCompanyId,
       privacyConsentedAt: users.privacyConsentedAt,
+      termsAcceptedAt: users.termsAcceptedAt,
     })
     .from(users)
     .where(eq(users.id, payload.targetUserId))
@@ -203,6 +204,9 @@ export async function resolveEffectiveSession(
       companyId: target.companyId,
       privacyConsentedAt: target.privacyConsentedAt
         ? target.privacyConsentedAt.getTime()
+        : null,
+      termsAcceptedAt: target.termsAcceptedAt
+        ? target.termsAcceptedAt.getTime()
         : null,
       viewAs,
     },

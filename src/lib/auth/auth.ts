@@ -252,6 +252,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
               status: users.status,
               companyId: users.employerCompanyId,
               privacyConsentedAt: users.privacyConsentedAt,
+              termsAcceptedAt: users.termsAcceptedAt,
             })
             .from(users)
             .where(eq(users.email, email.toLowerCase()))
@@ -264,6 +265,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
             token.companyId = dbUser.companyId;
             token.privacyConsentedAt = dbUser.privacyConsentedAt
               ? dbUser.privacyConsentedAt.getTime()
+              : null;
+            token.termsAcceptedAt = dbUser.termsAcceptedAt
+              ? dbUser.termsAcceptedAt.getTime()
               : null;
           }
         }
@@ -283,6 +287,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
         session.user.companyId = (token.companyId as string) ?? null;
         session.user.privacyConsentedAt =
           (token.privacyConsentedAt as number) ?? null;
+        session.user.termsAcceptedAt =
+          (token.termsAcceptedAt as number) ?? null;
       }
       return session;
     },

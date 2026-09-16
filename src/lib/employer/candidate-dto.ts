@@ -37,7 +37,11 @@ export interface EmployerCandidateView {
     techStack: string | null;
   }>;
   links: Array<{ id: string; kind: string; url: string; label: string | null }>;
-  recommendation: { strengthsMd: string | null; considerationsMd: string | null } | null;
+  recommendation: {
+    frogScore: number | null;
+    strengthsMd: string | null;
+    considerationsMd: string | null;
+  } | null;
 }
 
 export async function buildEmployerCandidateView(
@@ -62,6 +66,7 @@ export async function buildEmployerCandidateView(
   const recs = await db
     .select({
       companyId: recommendations.companyId,
+      frogScore: recommendations.frogScore,
       strengthsMd: recommendations.strengthsMd,
       considerationsMd: recommendations.considerationsMd,
     })
@@ -113,7 +118,11 @@ export async function buildEmployerCandidateView(
       label: l.label,
     })),
     recommendation: rec
-      ? { strengthsMd: rec.strengthsMd, considerationsMd: rec.considerationsMd }
+      ? {
+          frogScore: rec.frogScore ?? null,
+          strengthsMd: rec.strengthsMd,
+          considerationsMd: rec.considerationsMd,
+        }
       : null,
   };
 }
