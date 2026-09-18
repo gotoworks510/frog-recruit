@@ -12,7 +12,8 @@
 | App Review アカウントシード | ✅ 適用・ログイン確認済（employer/candidate） |
 | ASC 文面・Review Notes・栄養ラベル | 本ドキュメント（コピー用） |
 | スクリーンショット | ⏳ 未撮影（`frog-recruit-mobile/store-screenshots/`） |
-| 企業アプリ: 手数料非表示 / 削除導線 | ⏳ コード済 → コミット後に新TFビルド |
+| 企業アプリ: 手数料非表示 / 削除導線 | ✅ コードコミット済 → production TF ビルド投入済 |
+| iOS production ビルド（EAS） | ⏳ Candidate build 8 / Employer build 9（進行中） |
 | 審査提出 | **まだ押さない** |
 
 ---
@@ -249,6 +250,8 @@ curl -sS -X POST https://recruit.frogagent.com/api/v1/auth/login \
 - [x] 本番に privacy デプロイ済
 - [x] App Review シード適用・ログイン確認
 - [ ] モバイル両アプリを production TF ビルド → ASC へ提出用バイナリ
+  - Candidate: https://expo.dev/accounts/frog-creator-production-inc/projects/frog-recruit-candidate/builds/b9b4e9e7-517e-4754-8aef-b28ce14a8512 （buildNumber 8）
+  - Employer: https://expo.dev/accounts/frog-creator-production-inc/projects/frog-recruit-employer/builds/7d4ea7ed-7224-4f93-800a-76860610b372 （buildNumber 9）
 - [ ] スクショをASCにアップロード（両アプリ・両サイズ）
 - [ ] Review Notes + デモパスワード貼付（`.secrets/frog-recruit-app-review-credentials.txt`）
 - [ ] Privacy Nutrition Label 入力
