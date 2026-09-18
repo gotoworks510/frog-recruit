@@ -40,3 +40,4 @@ next-env.d.ts.bak
 # drizzle
 /drizzle/meta
 tmp/
+.venv-asc/
