@@ -42,7 +42,7 @@ export default async function LoginPage({
       body="Review your profile, see which companies Frog is introducing you to, and keep your story current."
       footerLines={[
         "About 12 years of supporting careers abroad.",
-        "Rooted in Vancouver's Frog community.",
+        "Part of Frog's Japan–North America community.",
       ]}
     >
       <p className="label-caps">Welcome to Frog Recruit</p>

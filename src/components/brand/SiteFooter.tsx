@@ -40,7 +40,7 @@ export function SiteFooter({
             <Link href="/privacy" className="transition hover:text-ink">
               Privacy
             </Link>
-            <p>Vancouver, Canada · Thoughtful introductions.</p>
+            <p>Canada · Thoughtful introductions.</p>
           </div>
         </div>
       </div>

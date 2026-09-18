@@ -39,7 +39,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-2 lg:items-center lg:gap-14 lg:py-20">
         <div>
-          <p className="label-caps">Rooted in Vancouver. Connected to Japan.</p>
+          <p className="label-caps">Connected to Japan. Active across North America.</p>
           <h1 className="mt-4 font-heading text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl">
             Good introductions start with{" "}
             <em className="italic">knowing people.</em>
@@ -116,9 +116,8 @@ export default function LandingPage() {
             For about 12 years, Frog has built Japanese professional communities
             across Canada — seminars, conferences, meetups, and gatherings that
             keep people connected long after they land. From that work grew what
-            is today the only large-scale community for Japanese tech talent on
-            the North American West Coast — based in Vancouver, connected to
-            Japan.
+            is today the only large-scale community for Japanese tech talent
+            across Canada and the U.S. West Coast — closely connected to Japan.
           </p>
 
           {/* Primary visual: large-hall scale */}
@@ -159,7 +158,7 @@ export default function LandingPage() {
                 },
                 {
                   src: "/community/conference-panel.jpg",
-                  alt: "Frog Conference panel of Japanese engineers at UBC Vancouver",
+                  alt: "Frog Conference panel of Japanese engineers at UBC",
                   label: "Tech conferences",
                   object: "object-cover object-[center_35%]",
                 },
@@ -206,8 +205,8 @@ export default function LandingPage() {
                 />
               </div>
               <figcaption className="mt-4 text-sm leading-relaxed text-muted">
-                Ongoing career sessions in Vancouver — the same community that
-                later becomes the talent pool behind Recruit.
+                Ongoing career sessions across the community — the same network
+                that later becomes the talent pool behind Recruit.
               </figcaption>
             </figure>
 
@@ -222,8 +221,8 @@ export default function LandingPage() {
                     body: "Candidates come through a community we have run for years — not cold inbound from a job board. When Frog recommends someone, it is because we have context on who they are.",
                   },
                   {
-                    title: "West Coast scale, Japan fluency",
-                    body: "We are rooted in Vancouver and focused on Japanese professionals building careers in Canada and the U.S. West Coast. That dual fluency is hard to fake — and hard to replace with a generic agency.",
+                    title: "North America scale, Japan fluency",
+                    body: "We focus on Japanese professionals building careers across Canada and the U.S. West Coast. That dual fluency — Japan and North American hiring contexts — is hard to fake, and hard to replace with a generic agency.",
                   },
                   {
                     title: "Judgment before the interview",

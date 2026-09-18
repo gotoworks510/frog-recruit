@@ -100,7 +100,7 @@ export function wrapEmailHtml(params: {
           <tr>
             <td style="background-color:${SURFACE};padding:22px 36px;border-top:1px solid ${LINE};">
               <p style="margin:0;color:${MUTED};font-size:12px;line-height:1.55;text-align:center;">
-                Frog Creator Production Inc. · Vancouver
+                Frog Creator Production Inc. · Canada
               </p>
               <p style="margin:6px 0 0;color:${MUTED};font-size:11px;line-height:1.5;text-align:center;">
                 Thoughtful introductions for hiring teams and candidates.
