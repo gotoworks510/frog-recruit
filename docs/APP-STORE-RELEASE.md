@@ -7,11 +7,12 @@
 
 | 項目 | 状態 |
 |---|---|
-| プライバシーポリシー（モバイル追記） | コード更新済 → 本番デプロイ必要 |
-| App Review アカウントシード | `scripts/generate-app-review-seed.mjs` |
-| ASC 文面・Review Notes・栄養ラベル | 本ドキュメント |
-| スクリーンショット | 下記ショットリスト（実機/Sim 撮影） |
-| 企業アプリ: 手数料非表示 / 削除導線 | コード更新済 → 新TFビルド必要 |
+| プライバシーポリシー（モバイル追記） | ✅ 本番公開済（`/privacy` · 18 Sep 2026） |
+| モバイル API v1 + D1 migration 0009 | ✅ 本番稼働（`/api/v1/meta` 200） |
+| App Review アカウントシード | ✅ 適用・ログイン確認済（employer/candidate） |
+| ASC 文面・Review Notes・栄養ラベル | 本ドキュメント（コピー用） |
+| スクリーンショット | ⏳ 未撮影（`frog-recruit-mobile/store-screenshots/`） |
+| 企業アプリ: 手数料非表示 / 削除導線 | ⏳ コード済 → コミット後に新TFビルド |
 | 審査提出 | **まだ押さない** |
 
 ---
@@ -172,7 +173,7 @@ HOW TO REVIEW
 1. Sign in.
 2. Home / Review: three fictional candidates (Alex Rivera, Mika Chen, Jordan Blake) with Frog recommendations.
 3. Open a candidate → view detail → optional watermarked resume.
-4. Mark Interested or Pass — Frog is notified (demo accounts skip external email/Slack).
+4. Mark Interested or Pass — Frog is notified (email + Slack + candidate Inbox/push on first Interested).
 5. Account → Request account deletion for Guideline 5.1.1(v).
 
 FEES
@@ -245,10 +246,11 @@ curl -sS -X POST https://recruit.frogagent.com/api/v1/auth/login \
 
 ## 6. 提出前チェックリスト（オーナー）
 
-- [ ] 本番に privacy デプロイ済
-- [ ] App Review シード適用・ログイン確認
+- [x] 本番に privacy デプロイ済
+- [x] App Review シード適用・ログイン確認
+- [ ] モバイル両アプリを production TF ビルド → ASC へ提出用バイナリ
 - [ ] スクショをASCにアップロード（両アプリ・両サイズ）
-- [ ] Review Notes + デモパスワード貼付
+- [ ] Review Notes + デモパスワード貼付（`.secrets/frog-recruit-app-review-credentials.txt`）
 - [ ] Privacy Nutrition Label 入力
 - [ ] 年齢・カテゴリ・価格確認
 - [ ] 企業アプリ最新TFで手数料が消えている／削除導線がある
