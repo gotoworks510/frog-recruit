@@ -11,10 +11,14 @@
 | モバイル API v1 + D1 migration 0009 | ✅ 本番稼働（`/api/v1/meta` 200） |
 | App Review アカウントシード | ✅ 適用・ログイン確認済（employer/candidate） |
 | ASC 文面・Review Notes・栄養ラベル | 本ドキュメント（コピー用） |
-| スクリーンショット | ⏳ 未撮影（`frog-recruit-mobile/store-screenshots/`） |
+| スクリーンショット | ⏳ 未撮影（提出ブロック中） |
 | 企業アプリ: 手数料非表示 / 削除導線 | ✅ コードコミット済 → production TF ビルド投入済 |
-| iOS production ビルド（EAS） | ⏳ Candidate build 8 / Employer build 9（進行中） |
-| 審査提出 | **まだ押さない** |
+| iOS production ビルド（EAS） | ✅ Candidate build 8 / Employer build 9（FINISHED） |
+| ASC バイナリ提出（eas submit） | ✅ 両アプリ投入済 |
+| Review Notes（デモ動画・PW） | ✅ ASC API で設定済 |
+| メタデータ／年齢／カテゴリ | ✅ ASC API で設定済 |
+| App Privacy / 価格 / スクショ | ⏳ ASC UI 要（提出ブロック） |
+| 審査提出 | **ブロック中**（下記3点） |
 
 ---
 
