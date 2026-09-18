@@ -105,6 +105,9 @@ WHY TWO APPS
 
 SIGN IN WITH APPLE
 Not applicable — we do not offer third-party social login in the apps (email/password only).
+
+DEMO VIDEO (optional)
+https://youtu.be/l3bixyy3ZV8
 ```
 
 ---
@@ -182,6 +185,9 @@ Referral fee schedules are intentionally NOT shown in the app (discussed offline
 
 WHY TWO APPS
 Separate candidate vs employer products (see candidate app notes). Different audiences and privacy disclosures.
+
+DEMO VIDEO (optional)
+https://youtu.be/F9XBP1e9NXQ
 ```
 
 ---
@@ -257,5 +263,8 @@ curl -sS -X POST https://recruit.frogagent.com/api/v1/auth/login \
 - [ ] Privacy Nutrition Label 入力
 - [ ] 年齢・カテゴリ・価格確認
 - [ ] 企業アプリ最新TFで手数料が消えている／削除導線がある
-- [ ] デモ動画URL（任意）
+- [ ] デモ動画URL（任意）— unlisted 済
+  - Candidate: https://youtu.be/l3bixyy3ZV8
+  - Employer: https://youtu.be/F9XBP1e9NXQ
+  - ASC Review Notes へ貼付は提出時（またはリジェクト返信時）
 - [ ] **Submit for Review**（このドキュメントではまだ押さない）
