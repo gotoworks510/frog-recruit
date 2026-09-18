@@ -17,8 +17,8 @@
 | ASC バイナリ提出（eas submit） | ✅ 両アプリ投入済 |
 | Review Notes（デモ動画・PW） | ✅ ASC API で設定済 |
 | メタデータ／年齢／カテゴリ | ✅ ASC API で設定済 |
-| App Privacy / 価格 | ⏳ ASC UI 要（提出ブロック残り） |
-| 審査提出 | **ブロック中**（Privacy + Pricing） |
+| App Privacy / 価格 | ✅ オーナー入力済（確認後に提出） |
+| 審査提出 | ✅ **WAITING_FOR_REVIEW**（2026-09-18） |
 
 ---
 
@@ -259,16 +259,17 @@ curl -sS -X POST https://recruit.frogagent.com/api/v1/auth/login \
 
 - [x] 本番に privacy デプロイ済
 - [x] App Review シード適用・ログイン確認
-- [ ] モバイル両アプリを production TF ビルド → ASC へ提出用バイナリ
+- [x] モバイル両アプリを production TF ビルド → ASC へ提出用バイナリ
   - Candidate: https://expo.dev/accounts/frog-creator-production-inc/projects/frog-recruit-candidate/builds/b9b4e9e7-517e-4754-8aef-b28ce14a8512 （buildNumber 8）
   - Employer: https://expo.dev/accounts/frog-creator-production-inc/projects/frog-recruit-employer/builds/7d4ea7ed-7224-4f93-800a-76860610b372 （buildNumber 9）
-- [ ] スクショをASCにアップロード（両アプリ・両サイズ）
-- [ ] Review Notes + デモパスワード貼付（`.secrets/frog-recruit-app-review-credentials.txt`）
-- [ ] Privacy Nutrition Label 入力
-- [ ] 年齢・カテゴリ・価格確認
-- [ ] 企業アプリ最新TFで手数料が消えている／削除導線がある
-- [ ] デモ動画URL（任意）— unlisted 済
+- [x] スクショをASCにアップロード（両アプリ・6.5"）
+- [x] Review Notes + デモパスワード貼付
+- [x] Privacy Nutrition Label 入力
+- [x] 年齢・カテゴリ・価格確認
+- [x] 企業アプリ最新TFで手数料が消えている／削除導線がある（build 9）
+- [x] デモ動画URL（任意）— unlisted 済
   - Candidate: https://youtu.be/l3bixyy3ZV8
   - Employer: https://youtu.be/F9XBP1e9NXQ
-  - ASC Review Notes へ貼付は提出時（またはリジェクト返信時）
-- [ ] **Submit for Review**（このドキュメントではまだ押さない）
+- [x] **Submit for Review**（2026-09-18 · 両アプリ WAITING_FOR_REVIEW）
+  - Candidate submission `13f28eda-4863-432a-9d10-5a91a35d87b3`
+  - Employer submission `d03233a8-5c9b-4202-8a7f-983398b5bb3a`
