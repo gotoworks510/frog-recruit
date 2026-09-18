@@ -116,6 +116,45 @@ export function buildCandidateCredentialsEmail(params: {
 }
 
 /**
+ * Self-service password reset (mobile apps, §5 of the owner decisions).
+ *
+ * The email carries the one-time token so the app can complete the reset via
+ * `POST /api/v1/auth/password-reset/confirm`. The link points at a web page
+ * that may still be a stub — the token itself is the primary path.
+ */
+export function buildPasswordResetEmail(params: {
+  name?: string | null;
+  token: string;
+  expiresInMinutes: number;
+}): RecruitEmailContent {
+  const url = `${baseUrl()}/reset-password?token=${encodeURIComponent(
+    params.token
+  )}`;
+  const greeting = params.name ? `Hi ${escapeHtml(params.name)},` : "Hello,";
+  return {
+    subject: "Reset your Frog Recruit password",
+    subtitle: "Password reset",
+    bodyHtml: `
+    <p style="margin:0 0 14px;font-size:16px;">${greeting}</p>
+    <p style="margin:0 0 14px;">
+      We received a request to reset the password for your Frog Recruit account.
+      Enter the code below in the app, or open the link, to choose a new password.
+    </p>
+    ${credentialCard([
+      { label: "Reset code", value: params.token, mono: true },
+    ])}
+    <p style="text-align:center;margin:28px 0;">${primaryButton(
+      url,
+      "Reset your password"
+    )}</p>
+    ${mintNote(
+      `This code expires in ${params.expiresInMinutes} minutes and can be used once. If you didn&apos;t request a reset, you can ignore this email — your password stays the same.`
+    )}
+  `,
+  };
+}
+
+/**
  * Notify a candidate that an employer expressed interest.
  * Prompts them to contact their Frog representative — no direct employer contact.
  */
@@ -146,6 +185,66 @@ export function buildCandidateEmployerInterestEmail(params: {
     )}</p>
     ${mintNote(
       "You can also reply to this email if you&apos;re unsure who your Frog contact is — we&apos;ll route it."
+    )}
+  `,
+  };
+}
+
+/** Ack to an employer who requested Frog Recruit app access (mobile login). */
+export function buildEmployerAccessRequestAckEmail(params: {
+  companyName: string;
+  contactName: string;
+}): RecruitEmailContent {
+  const greeting = params.contactName
+    ? `Dear ${escapeHtml(params.contactName)},`
+    : "Hello,";
+  return {
+    subject: "We received your Frog Recruit access request",
+    subtitle: "Request received",
+    bodyHtml: `
+    <p style="margin:0 0 14px;font-size:16px;">${greeting}</p>
+    <p style="margin:0 0 14px;">
+      Thanks for requesting Frog Recruit access for
+      <strong>${escapeHtml(params.companyName)}</strong>.
+    </p>
+    <p style="margin:0 0 14px;">
+      Here&apos;s what happens next:
+    </p>
+    <ol style="margin:0 0 14px;padding-left:20px;font-size:15px;line-height:1.55;color:#1a2420;">
+      <li style="margin-bottom:8px;">We review the role you shared and whether Frog has a strong candidate fit.</li>
+      <li style="margin-bottom:8px;">If we can confidently introduce someone, we create your employer account and email you the sign-in details.</li>
+      <li>If we don&apos;t have a fit yet, we&apos;ll keep the role in mind — we only open the app when an introduction is ready.</li>
+    </ol>
+    ${mintNote(
+      "No login is issued automatically. Accounts are created by Frog after review."
+    )}
+  `,
+  };
+}
+
+/** Ack to a candidate who requested Frog Recruit app access. */
+export function buildCandidateAccessRequestAckEmail(params: {
+  name: string;
+}): RecruitEmailContent {
+  const greeting = params.name
+    ? `Hi ${escapeHtml(params.name)},`
+    : "Hello,";
+  return {
+    subject: "We received your Frog Recruit access request",
+    subtitle: "Request received",
+    bodyHtml: `
+    <p style="margin:0 0 14px;font-size:16px;">${greeting}</p>
+    <p style="margin:0 0 14px;">
+      Thanks for requesting a Frog Recruit candidate account. Frog reviews every
+      request — if we can move forward, we&apos;ll email you sign-in details.
+    </p>
+    <p style="margin:0 0 14px;">
+      Please also add Frog&apos;s official LINE account as a friend so we can
+      reach you when needed. You can send us a short intro there after submitting
+      this request.
+    </p>
+    ${mintNote(
+      "Accounts are issued by Frog. There is no self-serve sign-up."
     )}
   `,
   };

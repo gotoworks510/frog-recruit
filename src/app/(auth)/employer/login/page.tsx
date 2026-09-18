@@ -92,6 +92,15 @@ export default async function EmployerLoginPage({
         </button>
       </form>
 
+      <p className="mt-4 text-center text-sm">
+        <Link
+          href="/forgot-password?appVariant=employer"
+          className="font-medium text-primary hover:underline"
+        >
+          Forgot password?
+        </Link>
+      </p>
+
       <p className="mt-8 text-sm">
         <Link href="/login" className="font-medium text-primary hover:underline">
           Candidate? Sign in here →

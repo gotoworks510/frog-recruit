@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { requireEmployer } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
-import { users, employerAccounts } from "@/lib/db/schema";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { changePassword as changePasswordCore } from "@/lib/account/password-core";
 
 const inputCls =
   "w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
@@ -20,33 +18,19 @@ async function changePassword(formData: FormData) {
   }
 
   const db = await getD1Db();
-  const u = await db
-    .select({
-      id: users.id,
-      passwordHash: users.passwordHash,
-      passwordSalt: users.passwordSalt,
-    })
-    .from(users)
-    .where(eq(users.id, session.user.id))
-    .get();
-
-  if (!u?.passwordHash || !u.passwordSalt) {
-    redirect("/portal/account/password?error=invalid");
+  const result = await changePasswordCore(db, {
+    userId: session.user.id,
+    role: "employer",
+    currentPassword: current,
+    newPassword: next,
+  });
+  if (!result.ok) {
+    redirect(
+      `/portal/account/password?error=${
+        result.reason === "current" ? "current" : "invalid"
+      }`
+    );
   }
-  const ok = await verifyPassword(current, u.passwordHash, u.passwordSalt);
-  if (!ok) {
-    redirect("/portal/account/password?error=current");
-  }
-
-  const { hash, salt } = await hashPassword(next);
-  await db
-    .update(users)
-    .set({ passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: new Date() })
-    .where(eq(users.id, session.user.id));
-  await db
-    .update(employerAccounts)
-    .set({ mustResetPassword: false, lastPasswordRotationAt: new Date() })
-    .where(eq(employerAccounts.userId, session.user.id));
 
   redirect("/portal");
 }

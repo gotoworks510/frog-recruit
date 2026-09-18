@@ -49,6 +49,12 @@ export default async function EmployerLayout({
           <div className="flex items-center gap-4 text-sm">
             <span className="hidden text-white/80 sm:inline">{companyName}</span>
             <Link
+              href="/portal/roles"
+              className="text-white/80 transition hover:text-white"
+            >
+              Roles
+            </Link>
+            <Link
               href="/portal/fees"
               className="text-white/80 transition hover:text-white"
             >

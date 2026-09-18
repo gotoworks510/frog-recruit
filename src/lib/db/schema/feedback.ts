@@ -42,6 +42,8 @@ export const candidateFeedback = sqliteTable(
     // JSON array of reason codes (see DECLINE_REASONS) when interest = not_interested.
     declineReasons: text("decline_reasons"),
     declineNote: text("decline_note"),
+    /** Offline / retry idempotency (unique per employer when set). */
+    clientRequestId: text("client_request_id"),
     updatedAt: integer("updated_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),

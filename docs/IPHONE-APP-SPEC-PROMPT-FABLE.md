@@ -2,6 +2,10 @@
 
 > 作成: 2026-09-16 / 対象: Web版 `recruit.frogagent.com`（frog-recruit, Next.js 15 + Cloudflare Workers + D1）をベースにした **iPhone アプリ 2 本**（企業向け / 候補者向け）と、それを支える **モバイルAPI + Push 通知基盤**。
 > この文書は「仕様書」であると同時に、Claude Code / エージェントへそのまま渡せる **マスタープロンプト** として書かれている。§14 に各フェーズの起動プロンプトを置く。
+>
+> **⚠️ オーナー確定の上書き:** `docs/IPHONE-APP-OWNER-DECISIONS.md` が本文書と矛盾する場合は **OWNER-DECISIONS が優先**（候補者返答3値、企業Home構成、閲覧Push既定OFF、セルフサービス認証、consent撤回時Home、refresh/オフライン安全性など）。
+>
+> **⚠️ オーナー確定の上書き:** `docs/IPHONE-APP-OWNER-DECISIONS.md` が本文書と矛盾する場合は **OWNER-DECISIONS が優先**（候補者返答3値、企業Home構成、閲覧Push既定OFF、セルフサービス認証、consent撤回時Home、refresh/オフライン安全性など）。
 
 ---
 

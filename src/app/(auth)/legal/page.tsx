@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { requireLoggedInPreTerms, roleHome } from "@/lib/auth/helpers";
 import { signOut } from "@/lib/auth/auth";
 import { getD1Db } from "@/lib/db/client";
-import { users } from "@/lib/db/schema";
+import { acceptTerms } from "@/lib/legal/accept-core";
 import { TERMS_VERSION } from "@/lib/legal/terms";
 import { Logo } from "@/components/brand/Logo";
 
@@ -21,13 +20,7 @@ export default async function LegalAcceptPage() {
       redirect(roleHome(s.user.role));
     }
     const db = await getD1Db();
-    await db
-      .update(users)
-      .set({
-        termsAcceptedAt: new Date(),
-        termsVersion: TERMS_VERSION,
-      })
-      .where(eq(users.id, s.user.id));
+    await acceptTerms(db, s.user.id, TERMS_VERSION);
     redirect(roleHome(s.user.role));
   }
 

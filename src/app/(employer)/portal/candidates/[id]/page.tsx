@@ -11,6 +11,7 @@ import { saveCandidateFeedback } from "@/lib/employer/feedback-actions";
 import { parseDeclineReasons, type CandidateFeedbackData } from "@/lib/employer/feedback";
 import { candidateFeedback, companies } from "@/lib/db/schema";
 import { writeAudit } from "@/lib/audit/log";
+import { emitEmployerViewed } from "@/lib/notify/visibility";
 
 export default async function EmployerCandidateDetail({
   params,
@@ -73,6 +74,12 @@ export default async function EmployerCandidateDetail({
     ip: hdrs.get("cf-connecting-ip") || hdrs.get("x-forwarded-for"),
     userAgent: hdrs.get("user-agent"),
   });
+
+  // Tell the candidate their profile was opened — once per company per day.
+  // Admin view-as is excluded: it isn't a real employer looking.
+  if (!session.user.viewAs) {
+    await emitEmployerViewed(db, { profileId: id, companyId: grant.companyId });
+  }
 
   return (
     <div className="space-y-6">

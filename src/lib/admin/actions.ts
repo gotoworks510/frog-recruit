@@ -32,6 +32,10 @@ import {
   INTRO_STATUSES,
   type IntroStatus,
 } from "@/lib/db/schema/introductions";
+import { syncCandidateVisibility } from "@/lib/notify/visibility";
+import { emitIntroductionEvents } from "@/lib/notify/introductions";
+import { revokeMobileSessions } from "@/lib/notify/sessions";
+import { isTestEmail } from "@/lib/notify/skip-ops";
 
 function str(v: FormDataEntryValue | null): string | null {
   const s = (v as string | null)?.trim();
@@ -72,19 +76,39 @@ async function ensureIntroduction(
   if (existing) {
     // Don't downgrade a later pipeline status when re-sharing.
     if (existing.status === "planned" && status !== "planned") {
+      const updatedAt = new Date();
       await db
         .update(candidateIntroductions)
-        .set({ status, updatedBy, updatedAt: new Date() })
+        .set({ status, updatedBy, updatedAt })
         .where(eq(candidateIntroductions.id, existing.id));
+      await emitIntroductionEvents(db, {
+        introductionId: existing.id,
+        candidateProfileId,
+        companyId,
+        previousStatus: existing.status,
+        status,
+        updatedAt,
+      });
     }
     return;
   }
 
+  const introId = crypto.randomUUID();
+  const createdAt = new Date();
   await db.insert(candidateIntroductions).values({
+    id: introId,
     candidateProfileId,
     companyId,
     status,
     updatedBy,
+  });
+  await emitIntroductionEvents(db, {
+    introductionId: introId,
+    candidateProfileId,
+    companyId,
+    previousStatus: null,
+    status,
+    updatedAt: createdAt,
   });
 }
 
@@ -101,6 +125,9 @@ export async function setCandidateStatus(formData: FormData) {
     .update(users)
     .set({ status: status as "pending" | "approved" | "rejected" })
     .where(eq(users.id, userId));
+  if (status === "rejected") {
+    await revokeMobileSessions(db, userId, "admin");
+  }
   revalidatePath("/admin/candidates");
   // Redirect (not just revalidate) so the dynamic detail page reliably refreshes
   // on OpenNext/Cloudflare, where revalidatePath alone may serve a stale view.
@@ -186,6 +213,8 @@ export async function saveRecommendation(formData: FormData) {
       updatedBy: session.user.id,
       status: "shared",
     });
+    // Publishing + sharing can be the moment effective access turns true.
+    await syncCandidateVisibility(db, candidateProfileId);
   }
 
   revalidatePath("/admin/candidates");
@@ -242,7 +271,9 @@ export async function createInvite(formData: FormData) {
   });
 
   const { subject, subtitle, bodyHtml } = buildCandidateInviteEmail({ name, token });
-  await sendEmail({ to: email, subject, subtitle, bodyHtml });
+  if (!(await isTestEmail(db, email))) {
+    await sendEmail({ to: email, subject, subtitle, bodyHtml });
+  }
 
   revalidatePath("/admin/invites");
 }
@@ -449,12 +480,17 @@ export async function rotateEmployerPassword(formData: FormData) {
       .get();
     if (c?.name) companyName = c.name;
   }
+  // The old password is dead — sign the employer out of every mobile device.
+  await revokeMobileSessions(db, userId, "password_changed");
+
   const { subject, subtitle, bodyHtml } = buildEmployerCredentialsEmail({
     companyName,
     email: u.email,
     tempPassword,
   });
-  await sendEmail({ to: u.email, subject, subtitle, bodyHtml });
+  if (!(await isTestEmail(db, u.email))) {
+    await sendEmail({ to: u.email, subject, subtitle, bodyHtml });
+  }
 
   await flashTempPassword(u.email, tempPassword);
   redirect("/admin/employers?rotated=1");
@@ -470,6 +506,10 @@ export async function setEmployerDisabled(formData: FormData) {
     .update(employerAccounts)
     .set({ disabledAt: disabled ? new Date() : null })
     .where(eq(employerAccounts.userId, userId));
+  if (disabled) {
+    // A disabled employer must stop receiving candidate pushes immediately.
+    await revokeMobileSessions(db, userId, "admin");
+  }
   revalidatePath("/admin/employers");
 }
 
@@ -501,6 +541,8 @@ export async function deleteEmployer(formData: FormData) {
     redirect("/admin/employers?error=notfound");
   }
 
+  // Revoke before the cascade so push tokens are cleared deliberately.
+  await revokeMobileSessions(db, userId, "admin");
   await db.delete(users).where(eq(users.id, userId));
   revalidatePath("/admin/employers");
   redirect("/admin/employers?deleted=1");
@@ -648,6 +690,7 @@ export async function createGrant(formData: FormData) {
     updatedBy: session.user.id,
     status: "shared",
   });
+  await syncCandidateVisibility(db, candidateProfileId);
   redirect("/admin/grants?ok=1");
 }
 
@@ -844,12 +887,16 @@ export async function rotateCandidatePassword(formData: FormData) {
     });
   }
 
+  await revokeMobileSessions(db, userId, "password_changed");
+
   const { subject, subtitle, bodyHtml } = buildCandidateCredentialsEmail({
     name: u.name,
     email: u.email,
     tempPassword,
   });
-  await sendEmail({ to: u.email, subject, subtitle, bodyHtml });
+  if (!(await isTestEmail(db, u.email))) {
+    await sendEmail({ to: u.email, subject, subtitle, bodyHtml });
+  }
 
   await flashCandidateTempPassword(u.email, tempPassword);
   redirect(`/admin/candidates/${userId}?rotated=1`);
@@ -873,6 +920,9 @@ export async function setCandidateDisabled(formData: FormData) {
     .update(candidateAccounts)
     .set({ disabledAt: disabled ? new Date() : null })
     .where(eq(candidateAccounts.userId, userId));
+  if (disabled) {
+    await revokeMobileSessions(db, userId, "admin");
+  }
   revalidatePath("/admin/candidates");
   revalidatePath(`/admin/candidates/${userId}`);
 }
@@ -896,7 +946,10 @@ export async function upsertIntroduction(formData: FormData) {
   const status = statusRaw as IntroStatus;
 
   const existing = await db
-    .select({ id: candidateIntroductions.id })
+    .select({
+      id: candidateIntroductions.id,
+      status: candidateIntroductions.status,
+    })
     .from(candidateIntroductions)
     .where(
       and(
@@ -906,7 +959,13 @@ export async function upsertIntroduction(formData: FormData) {
     )
     .get();
 
+  const updatedAt = new Date();
+  let introId: string;
+  let previousStatus: IntroStatus | null = null;
+
   if (existing) {
+    introId = existing.id;
+    previousStatus = existing.status;
     await db
       .update(candidateIntroductions)
       .set({
@@ -914,11 +973,13 @@ export async function upsertIntroduction(formData: FormData) {
         statusNote,
         noteInternal,
         updatedBy: session.user.id,
-        updatedAt: new Date(),
+        updatedAt,
       })
       .where(eq(candidateIntroductions.id, existing.id));
   } else {
+    introId = crypto.randomUUID();
     await db.insert(candidateIntroductions).values({
+      id: introId,
       candidateProfileId,
       companyId,
       status,
@@ -927,6 +988,18 @@ export async function upsertIntroduction(formData: FormData) {
       updatedBy: session.user.id,
     });
   }
+
+  // Candidate + employer Inbox/push for the new pipeline state. `noteInternal`
+  // is never passed through — only the candidate-safe statusNote.
+  await emitIntroductionEvents(db, {
+    introductionId: introId,
+    candidateProfileId,
+    companyId,
+    previousStatus,
+    status,
+    statusNote,
+    updatedAt,
+  });
 
   revalidatePath("/me");
   revalidatePath("/me/sharing");

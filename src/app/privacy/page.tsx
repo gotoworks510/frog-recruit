@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "Draft privacy policy for personal information handled in Frog Recruit.",
 };
 
-const LAST_UPDATED = "16 September 2026";
+const LAST_UPDATED = "18 September 2026";
 
 export default function PrivacyPage() {
   return (
@@ -20,7 +20,9 @@ export default function PrivacyPage() {
         <p>
           Frog Creator Production Inc. (“Frog,” “we,” “us,” or “our”) operates
           Frog Recruit, a private introduction portal at recruit.frogagent.com
-          (and related domains).
+          (and related domains), including the{" "}
+          <strong>Frog Recruit</strong> and{" "}
+          <strong>Frog Recruit for Employers</strong> iOS apps.
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>
@@ -61,7 +63,7 @@ export default function PrivacyPage() {
         <LegalH2>2. Scope</LegalH2>
         <p>This Policy covers personal information processed when you:</p>
         <ul className="list-disc space-y-1 pl-5">
-          <li>use Frog Recruit as a candidate or employer user;</li>
+          <li>use Frog Recruit as a candidate or employer user (web or iOS app);</li>
           <li>are invited or administered by Frog staff; or</li>
           <li>communicate with us about introductions made through the Service.</li>
         </ul>
@@ -116,7 +118,13 @@ export default function PrivacyPage() {
             request logs
           </li>
           <li>
-            Authentication events (including Google sign-in where used)
+            Authentication events (including Google sign-in where used on the
+            web portal)
+          </li>
+          <li>
+            On the iOS apps: device identifiers used to deliver push
+            notifications and keep your session signed in on that device;
+            notification preference settings you choose
           </li>
           <li>
             Audit records when employers view candidate materials or download
@@ -149,6 +157,10 @@ export default function PrivacyPage() {
             and accountability measure
           </li>
           <li>Coordinate feedback and next steps</li>
+          <li>
+            Send optional push notifications about introductions and account
+            activity (iOS apps)
+          </li>
           <li>Provide support, prevent abuse, and secure the Service</li>
           <li>Improve the Service and keep operational records</li>
           <li>Comply with law and enforce our Terms of Use</li>
@@ -170,8 +182,10 @@ export default function PrivacyPage() {
         <p>
           We use processors to host and operate the Service, which may include
           cloud infrastructure (for example Cloudflare for application hosting,
-          database, and file storage), email delivery (for example Resend), and
-          authentication providers (for example Google for sign-in). They
+          database, and file storage), email delivery (for example Resend), push
+          notification delivery (for example Apple Push Notification service and
+          Expo&apos;s push service for the iOS apps), and authentication
+          providers (for example Google for web sign-in where used). They
           process data on our instructions and for providing those services.
         </p>
         <LegalH3>5.3 Legal and safety</LegalH3>
@@ -231,7 +245,12 @@ export default function PrivacyPage() {
           <li>access personal information we hold about you;</li>
           <li>correct inaccurate information;</li>
           <li>withdraw sharing consent (candidates) through the Service or by contacting us;</li>
-          <li>ask us to delete information, subject to legal and operational limits (for example audit trails or records we must keep); and</li>
+          <li>
+            request account deletion from the iOS app (Account → Request account
+            deletion) or by emailing us — we confirm before completing deletion,
+            subject to legal and operational limits (for example audit trails);
+            and
+          </li>
           <li>ask questions about our privacy practices.</li>
         </ul>
         <p>

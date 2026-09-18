@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { requireCandidateSession } from "@/lib/candidate/guard";
 import { getD1Db } from "@/lib/db/client";
-import { users, candidateAccounts } from "@/lib/db/schema";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { users } from "@/lib/db/schema";
+import { changePassword as changePasswordCore } from "@/lib/account/password-core";
 
 const inputCls =
   "w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
@@ -20,34 +20,15 @@ async function changePassword(formData: FormData) {
   }
 
   const db = await getD1Db();
-  const u = await db
-    .select({
-      id: users.id,
-      passwordHash: users.passwordHash,
-      passwordSalt: users.passwordSalt,
-      authProvider: users.authProvider,
-    })
-    .from(users)
-    .where(eq(users.id, session.user.id))
-    .get();
-
-  if (!u?.passwordHash || !u.passwordSalt || u.authProvider !== "credentials") {
-    redirect("/me/account/password?error=unsupported");
+  const result = await changePasswordCore(db, {
+    userId: session.user.id,
+    role: "candidate",
+    currentPassword: current,
+    newPassword: next,
+  });
+  if (!result.ok) {
+    redirect(`/me/account/password?error=${result.reason}`);
   }
-  const ok = await verifyPassword(current, u.passwordHash, u.passwordSalt);
-  if (!ok) {
-    redirect("/me/account/password?error=current");
-  }
-
-  const { hash, salt } = await hashPassword(next);
-  await db
-    .update(users)
-    .set({ passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: new Date() })
-    .where(eq(users.id, session.user.id));
-  await db
-    .update(candidateAccounts)
-    .set({ mustResetPassword: false, lastPasswordRotationAt: new Date() })
-    .where(eq(candidateAccounts.userId, session.user.id));
 
   redirect("/me");
 }

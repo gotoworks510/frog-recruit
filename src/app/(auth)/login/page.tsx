@@ -101,6 +101,15 @@ export default async function LoginPage({
         </button>
       </form>
 
+      <p className="mt-4 text-center text-sm">
+        <Link
+          href="/forgot-password?appVariant=candidate"
+          className="font-medium text-primary hover:underline"
+        >
+          Forgot password?
+        </Link>
+      </p>
+
       <div className="relative my-8">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
           <div className="w-full border-t border-line" />

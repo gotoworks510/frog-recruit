@@ -19,6 +19,16 @@ declare global {
     /** Prefer recruit-specific channel; falls back to SLACK_CHANNEL_ID. */
     SLACK_RECRUIT_CHANNEL_ID?: string;
     SLACK_CHANNEL_ID?: string;
+    /** HS256 secret for mobile access JWTs (`wrangler secret put`). */
+    MOBILE_JWT_SECRET?: string;
+    /** Optional Expo Push access token for higher rate limits. */
+    EXPO_ACCESS_TOKEN?: string;
+    /** Forced-update floor reported by GET /api/v1/meta. */
+    MOBILE_MIN_VERSION_CANDIDATE?: string;
+    MOBILE_MIN_VERSION_EMPLOYER?: string;
+    /** "1" puts the mobile apps into the maintenance screen. */
+    MOBILE_MAINTENANCE?: string;
+    MOBILE_MAINTENANCE_MESSAGE?: string;
   }
 }
 

@@ -36,6 +36,11 @@ export const users = sqliteTable("users", {
   /** One-time acceptance of Terms of Use + Privacy Policy (first login). */
   termsAcceptedAt: integer("terms_accepted_at", { mode: "timestamp" }),
   termsVersion: text("terms_version"),
+  /**
+   * App Review / internal test accounts. When 1, skip Resend email and Slack
+   * ops notifications; Inbox + Push still work normally.
+   */
+  isTest: integer("is_test", { mode: "boolean" }).notNull().default(false),
   lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()

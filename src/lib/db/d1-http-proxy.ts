@@ -24,6 +24,12 @@ type ApiQueryResult = {
   meta: Record<string, unknown>;
 };
 
+type ApiRawResult = {
+  results: { columns: string[]; rows: unknown[][] };
+  success: boolean;
+  meta: Record<string, unknown>;
+};
+
 function getConfig(): D1HttpConfig {
   const apiToken = process.env.CLOUDFLARE_API_TOKEN;
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -55,7 +61,31 @@ async function executeQuery(
   sql: string,
   params: unknown[] = []
 ): Promise<ApiQueryResult> {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/d1/database/${config.databaseId}/query`;
+  return callApi<ApiQueryResult>(config, "query", sql, params);
+}
+
+/**
+ * The `/raw` endpoint returns `{ columns, rows }` instead of row objects.
+ * That distinction matters: `/query` returns JSON objects keyed by column name,
+ * so a join selecting two columns called `id` collapses them and every later
+ * value shifts by one. drizzle maps `.all()` results positionally via `raw()`,
+ * so joined selects MUST go through `/raw` to stay correct.
+ */
+async function executeRaw(
+  config: D1HttpConfig,
+  sql: string,
+  params: unknown[] = []
+): Promise<ApiRawResult> {
+  return callApi<ApiRawResult>(config, "raw", sql, params);
+}
+
+async function callApi<T>(
+  config: D1HttpConfig,
+  endpoint: "query" | "raw",
+  sql: string,
+  params: unknown[]
+): Promise<T> {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/d1/database/${config.databaseId}/${endpoint}`;
 
   const res = await fetch(url, {
     method: "POST",
@@ -74,7 +104,7 @@ async function executeQuery(
   const body = (await res.json()) as {
     success: boolean;
     errors: { message: string }[];
-    result: ApiQueryResult[];
+    result: T[];
   };
 
   if (!body.success || !body.result?.[0]) {
@@ -141,8 +171,8 @@ class D1HttpPreparedStatement {
   }
 
   async raw<T = unknown[]>(): Promise<T[]> {
-    const result = await executeQuery(this.config, this.sql, this.params);
-    return result.results.map((row) => Object.values(row)) as T[];
+    const result = await executeRaw(this.config, this.sql, this.params);
+    return (result.results?.rows ?? []) as T[];
   }
 }
 

@@ -3,7 +3,8 @@ import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { requireCandidatePreConsent } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
-import { users, candidateProfiles, candidateConsents } from "@/lib/db/schema";
+import { users } from "@/lib/db/schema";
+import { enableConsentCore } from "@/lib/candidate/profile-core";
 import { Logo } from "@/components/brand/Logo";
 
 const CONSENT_VERSION = "2026-06-22";
@@ -18,24 +19,16 @@ export default async function ConsentPage() {
     const s = await requireCandidatePreConsent();
     const db = await getD1Db();
 
-    const profile = await db
-      .select({ id: candidateProfiles.id })
-      .from(candidateProfiles)
-      .where(eq(candidateProfiles.userId, s.user.id))
-      .get();
-
     const hdrs = await headers();
     const ip =
       hdrs.get("cf-connecting-ip") || hdrs.get("x-forwarded-for") || null;
 
-    if (profile) {
-      await db.insert(candidateConsents).values({
-        candidateProfileId: profile.id,
-        scope: "share_with_employers",
-        consentTextVersion: CONSENT_VERSION,
-        ipAtConsent: ip,
-      });
-    }
+    // Consent can flip an existing grant to effective — the core also runs
+    // syncCandidateVisibility so employers get their "new candidate" push.
+    await enableConsentCore(db, s.user.id, {
+      consentTextVersion: CONSENT_VERSION,
+      ip,
+    });
 
     await db
       .update(users)
