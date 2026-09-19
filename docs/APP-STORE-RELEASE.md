@@ -220,8 +220,10 @@ Apple: **6.9"**（iPhone 16 Pro Max 相当）と **6.5"** が主。同じ構図�
 5. Account（roles / legal / deletion）
 
 撮影メモ:
-- デモアカウントでログイン（本番API）
+- **架空の App Review データのみ**（Harborline Analytics / Alex Rivera / Northwind Labs / Sam Reviewer）。実案件（Palm 等）は絶対に写さない
+- デモアカウントでログイン（本番API・`appreview+…@frogagent.com`）
 - ステータスバーはクリーン（機内モード可）
+- 2026-09-18: 実案件スクショを差し替え後、両アプリ再提出 → WAITING_FOR_REVIEW
 - 実在PIIを映さない
 - 英語UIのみ
 
