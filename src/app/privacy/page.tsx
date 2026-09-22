@@ -127,8 +127,7 @@ export default function PrivacyPage() {
             notification preference settings you choose
           </li>
           <li>
-            Audit records when employers view candidate materials or download
-            watermarked résumés
+            Audit records when employers view candidate materials or résumés
           </li>
         </ul>
         <LegalH3>3.4 Information Frog creates</LegalH3>
@@ -153,8 +152,7 @@ export default function PrivacyPage() {
             can view shared profiles or résumés
           </li>
           <li>
-            Apply résumé watermarks and maintain view audit logs as a deterrent
-            and accountability measure
+            Maintain view audit logs as an accountability measure
           </li>
           <li>Coordinate feedback and next steps</li>
           <li>
@@ -231,10 +229,8 @@ export default function PrivacyPage() {
         <p>
           We use administrative, technical, and organizational measures
           appropriate to the sensitivity of recruitment data (access controls,
-          encrypted transport, authenticated sessions, and résumé watermarks for
-          employer downloads). No method of transmission or storage is fully
-          secure. Watermarking discourages misuse; it does not prevent screenshots
-          or printing.
+          encrypted transport, and authenticated sessions). No method of
+          transmission or storage is fully secure.
         </p>
       </section>
 

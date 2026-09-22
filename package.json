@@ -29,7 +29,6 @@
     "lucide-react": "^0.469.0",
     "next": "15.5.18",
     "next-auth": "^5.0.0-beta.25",
-    "pdf-lib": "^1.17.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",

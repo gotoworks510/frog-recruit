@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { SiteFooter } from "@/components/brand/SiteFooter";
+import type { AppStoreVariant } from "@/lib/apps/app-store";
 
 interface AuthSplitShellProps {
   /** Small caps label on the brand panel (e.g. FOR CANDIDATES). */
@@ -9,6 +10,8 @@ interface AuthSplitShellProps {
   headline: ReactNode;
   body: string;
   footerLines?: string[];
+  /** Footer App Store link for this login audience. */
+  appVariant?: AppStoreVariant;
   children: ReactNode;
 }
 
@@ -21,6 +24,7 @@ export function AuthSplitShell({
   headline,
   body,
   footerLines = [],
+  appVariant,
   children,
 }: AuthSplitShellProps) {
   return (
@@ -60,7 +64,7 @@ export function AuthSplitShell({
           </div>
         </div>
       </div>
-      <SiteFooter />
+      <SiteFooter apps={appVariant ?? "none"} />
     </div>
   );
 }

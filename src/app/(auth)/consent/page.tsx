@@ -54,7 +54,7 @@ export default async function ConsentPage() {
           <ul className="list-disc space-y-1 pl-5">
             <li>Your profile is only shared with hiring companies that Frog refers you to.</li>
             <li>
-              When an employer views your resume, it is watermarked with the viewer and timestamp, and the access is logged.
+              When an employer views your resume, the access is logged.
             </li>
             <li>
               You can withdraw your consent at any time from the Sharing settings page, and withdrawing it immediately stops employer access.

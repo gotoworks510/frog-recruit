@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEmployerApi } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
-import { buildWatermarkedResume } from "@/lib/employer/resume-stream";
+import { streamEmployerResume } from "@/lib/employer/resume-stream";
 import { auditMetaFromRequest } from "@/lib/audit/log";
 
 export async function GET(
@@ -15,11 +15,10 @@ export async function GET(
   const db = await getD1Db();
   const meta = auditMetaFromRequest(request);
 
-  const result = await buildWatermarkedResume(db, {
+  const result = await streamEmployerResume(db, {
     employerUserId: session.user.id,
     profileId: id,
     companyId: session.user.companyId,
-    viewerEmail: session.user.email ?? "",
     audit: {
       actorUserId: session.user.viewAs?.adminId ?? session.user.id,
       actorRole: session.user.viewAs ? "admin_view_as" : "employer",

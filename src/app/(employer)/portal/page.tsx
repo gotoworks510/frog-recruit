@@ -8,6 +8,7 @@ import { WORK_AUTH_LABELS } from "@/lib/candidate/profile";
 import { writeAudit } from "@/lib/audit/log";
 import { recommendationExcerpt } from "@/components/candidate/CandidateView";
 import { FrogScoreBadge } from "@/components/employer/FrogScoreBadge";
+import { AppDownloadPrompt } from "@/components/brand/AppDownloadSection";
 
 export default async function EmployerPortal({
   searchParams,
@@ -223,6 +224,8 @@ export default async function EmployerPortal({
           })}
         </div>
       )}
+
+      <AppDownloadPrompt variant="employer" />
     </div>
   );
 }

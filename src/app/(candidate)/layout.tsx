@@ -2,6 +2,7 @@ import { requireCandidateSession } from "@/lib/candidate/guard";
 import { signOut } from "@/lib/auth/auth";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { SiteFooter } from "@/components/brand/SiteFooter";
+import { SmartAppBanner } from "@/components/brand/SmartAppBanner";
 import { CandidateNav } from "@/components/candidate/CandidateNav";
 import { ViewAsBanner } from "@/components/admin/ViewAsBanner";
 import { isViewAsSession } from "@/lib/auth/view-as";
@@ -21,6 +22,7 @@ export default async function CandidateLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-surface">
+      <SmartAppBanner variant="candidate" />
       {previewing && <ViewAsBanner session={session} />}
       <header className="bg-brand text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
@@ -59,6 +61,7 @@ export default async function CandidateLayout({
       <CandidateNav />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
       <SiteFooter
+        apps="candidate"
         noteLeft="Part of Frog's long-standing overseas career community."
         noteRight="Questions about your next step? Contact your Frog representative."
       />

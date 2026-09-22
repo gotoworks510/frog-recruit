@@ -17,8 +17,18 @@
 | ASC バイナリ提出（eas submit） | ✅ 両アプリ投入済 |
 | Review Notes（デモ動画・PW） | ✅ ASC API で設定済 |
 | メタデータ／年齢／カテゴリ | ✅ ASC API で設定済 |
-| App Privacy / 価格 | ✅ オーナー入力済（確認後に提出） |
-| 審査提出 | ✅ **WAITING_FOR_REVIEW**（2026-09-18） |
+| App Privacy / 価格 | ✅ オーナー入力済 |
+| **App Store 公開** | ✅ **承認・DL可能**（Candidate `id6812968612` / Employer `id6812968390`） |
+| サイト導線（LP・login・portal） | ✅ App Store バッジ＋Smart App Banner |
+
+### App Store URLs（公開済）
+
+| アプリ | URL |
+|---|---|
+| Frog Recruit（候補者） | https://apps.apple.com/app/frog-recruit/id6812968612 |
+| Frog Recruit for Employers | https://apps.apple.com/app/frog-recruit-for-employers/id6812968390 |
+
+サイト導線の正本: `src/lib/apps/app-store.ts`
 
 ---
 
@@ -132,7 +142,7 @@ Accounts are issued by Frog when we have a candidate we are confident introducin
 • Review candidates Frog has granted you access to
 • See Frog’s recommendation, strengths, and considerations
 • Mark Interested / Pass (with optional notes) — Frog coordinates next steps
-• Open watermarked PDF resumes in-app
+• Open PDF resumes in-app
 • Get notified when Frog introduces someone new
 
 You never contact candidates directly through this app. Frog manages outreach.
@@ -180,7 +190,7 @@ Company: Harborline Analytics (fictional)
 HOW TO REVIEW
 1. Sign in.
 2. Home / Review: three fictional candidates (Alex Rivera, Mika Chen, Jordan Blake) with Frog recommendations.
-3. Open a candidate → view detail → optional watermarked resume.
+3. Open a candidate → view detail → optional resume.
 4. Mark Interested or Pass — Frog is notified (email + Slack + candidate Inbox/push on first Interested).
 5. Account → Request account deletion for Guideline 5.1.1(v).
 

@@ -312,7 +312,7 @@ SELECT action, COUNT(*) FROM view_audit WHERE actor_user_id = '<employer id>' GR
 is_test アカウントなので **メールと Slack はスキップ**（dev ログに `[slack] skipped for is_test account`）。
 `maybe` / `not_interested` は候補者へ一切通知しない。
 
-### 5-5. 透かしレジュメ
+### 5-5. レジュメ配信
 
 ```bash
 curl -s -D- -o /tmp/resume.pdf -H "Authorization: Bearer $AT" \
@@ -321,7 +321,7 @@ curl -s -D- -o /tmp/resume.pdf -H "Authorization: Bearer $AT" \
 # canDownloadResume=false → 403 / レジュメ未登録 → 404
 ```
 
-`download_resume` 監査が毎回 1 行増え、会社名・閲覧者・日時の透かしが焼き込まれる。
+`download_resume` 監査が毎回 1 行増える。PDF は原本のまま（透かしなし）。
 
 ---
 

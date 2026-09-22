@@ -33,6 +33,7 @@ export default async function ForgotPasswordPage({
     return (
       <AuthSplitShell
         audienceLabel="Account"
+        appVariant={defaultVariant}
         headline={
           <>
             Check your email.
@@ -71,6 +72,7 @@ export default async function ForgotPasswordPage({
   return (
     <AuthSplitShell
       audienceLabel="Account"
+      appVariant={defaultVariant}
       headline={
         <>
           Forgot your

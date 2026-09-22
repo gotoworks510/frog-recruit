@@ -1,7 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { SiteFooter } from "@/components/brand/SiteFooter";
+import { AppDownloadSection } from "@/components/brand/AppDownloadSection";
+import { AppStoreBadge } from "@/components/brand/AppStoreBadge";
+import { APP_STORE } from "@/lib/apps/app-store";
+
+export const metadata: Metadata = {
+  title: "How it works — Frog Recruit",
+};
 
 const STEPS_SHARED = [
   {
@@ -115,7 +123,16 @@ export default function HowItWorksPage() {
             <ol className="mt-6 space-y-5 text-sm leading-relaxed text-muted">
               <li>
                 <span className="font-semibold text-ink">1. Log in to your portal.</span>{" "}
-                Only candidates Frog granted to your company appear.
+                Use the web portal or{" "}
+                <a
+                  href={APP_STORE.employer.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Frog Recruit for Employers
+                </a>{" "}
+                on iPhone. Only candidates Frog granted to your company appear.
               </li>
               <li>
                 <span className="font-semibold text-ink">2. Scan Frog scores.</span>{" "}
@@ -140,7 +157,16 @@ export default function HowItWorksPage() {
             <ol className="mt-6 space-y-5 text-sm leading-relaxed text-muted">
               <li>
                 <span className="font-semibold text-ink">1. Accept your invite and log in.</span>{" "}
-                Complete profile, experience, links, and resume.
+                On the web or in the{" "}
+                <a
+                  href={APP_STORE.candidate.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Frog Recruit
+                </a>{" "}
+                iPhone app. Complete profile, experience, links, and resume.
               </li>
               <li>
                 <span className="font-semibold text-ink">2. Turn sharing on.</span>{" "}
@@ -201,6 +227,10 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
+      <div id="iphone-apps">
+        <AppDownloadSection />
+      </div>
+
       <section className="mx-auto max-w-6xl px-6 py-14">
         <div className="rounded-2xl bg-brand px-6 py-10 text-white sm:px-10">
           <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -208,10 +238,10 @@ export default function HowItWorksPage() {
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/75 sm:text-base">
             Employers and candidates do not self-serve into live introductions.
-            If Frog is working with you, you already have login details — or
-            your Frog contact will send them.
+            If Frog is working with you, use the web login or the iPhone app for
+            your role — with the credentials Frog already sent.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-4">
             <Link
               href="/employer/login"
               className="rounded-md bg-surface px-4 py-2 text-sm font-semibold text-brand transition hover:bg-white"
@@ -224,6 +254,10 @@ export default function HowItWorksPage() {
             >
               Candidate login
             </Link>
+          </div>
+          <div className="mt-8 flex flex-wrap items-center gap-5 border-t border-white/15 pt-8">
+            <AppStoreBadge variant="candidate" tone="white" height={40} />
+            <AppStoreBadge variant="employer" tone="white" height={40} />
           </div>
         </div>
       </section>

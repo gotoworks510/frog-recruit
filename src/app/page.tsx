@@ -1,11 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { SiteFooter } from "@/components/brand/SiteFooter";
+import { AppDownloadSection } from "@/components/brand/AppDownloadSection";
 import {
   FEE_TIERS,
   SUBSEQUENT_HIRE_FEE_PCT,
 } from "@/lib/employer/fee-schedule";
+
+export const metadata: Metadata = {
+  title: "Frog Recruit — Thoughtful introductions",
+  description:
+    "Frog's private introduction portal for Japanese professionals and hiring teams across North America. Access by Frog referral. Also on the App Store.",
+};
 
 export default function LandingPage() {
   return (
@@ -20,6 +28,12 @@ export default function LandingPage() {
             >
               How it works
             </Link>
+            <a
+              href="#iphone-apps"
+              className="hidden rounded-md px-3 py-2 font-medium text-white/85 transition hover:text-white sm:inline"
+            >
+              iPhone apps
+            </a>
             <Link
               href="/login"
               className="rounded-md px-3 py-2 font-medium text-white/85 transition hover:text-white"
@@ -61,7 +75,15 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-5 text-xs text-muted">
-            A private introduction portal. Access is provided by Frog.
+            A private introduction portal. Access is provided by Frog. Invited
+            candidates and employers can also use the{" "}
+            <a
+              href="#iphone-apps"
+              className="font-medium text-primary hover:underline"
+            >
+              iPhone apps
+            </a>
+            .
           </p>
         </div>
 
@@ -273,6 +295,10 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+
+      <div id="iphone-apps">
+        <AppDownloadSection />
+      </div>
 
       {/* How it connects to the product */}
       <section className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-2 lg:gap-14">

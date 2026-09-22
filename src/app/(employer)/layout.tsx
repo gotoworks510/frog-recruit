@@ -6,6 +6,7 @@ import { getD1Db } from "@/lib/db/client";
 import { employerAccounts, companies } from "@/lib/db/schema";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { SiteFooter } from "@/components/brand/SiteFooter";
+import { SmartAppBanner } from "@/components/brand/SmartAppBanner";
 import { ViewAsBanner } from "@/components/admin/ViewAsBanner";
 import { isViewAsSession } from "@/lib/auth/view-as";
 import { exitViewAs } from "@/lib/admin/actions";
@@ -42,6 +43,7 @@ export default async function EmployerLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-surface">
+      <SmartAppBanner variant="employer" />
       {previewing && <ViewAsBanner session={session} />}
       <header className="bg-brand text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
@@ -91,6 +93,7 @@ export default async function EmployerLayout({
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
       <SiteFooter
+        apps="employer"
         noteLeft="Built on about 12 years of overseas career support."
         noteRight="Private to your company. Please do not redistribute candidate information."
       />

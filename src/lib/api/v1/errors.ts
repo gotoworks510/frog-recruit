@@ -15,7 +15,7 @@ function baseHeaders(extra?: HeadersInit): Headers {
   return headers;
 }
 
-/** Add no-store to a non-JSON response (e.g. the watermarked PDF stream). */
+/** Add no-store to a non-JSON response (e.g. the employer PDF stream). */
 export function withNoStore(response: Response): Response {
   response.headers.set("Cache-Control", "no-store");
   return response;

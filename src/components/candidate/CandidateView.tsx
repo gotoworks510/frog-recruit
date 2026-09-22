@@ -175,7 +175,7 @@ export function CandidateView({
             rel="noopener noreferrer"
             className="mt-3 inline-flex text-sm font-semibold text-frog hover:underline"
           >
-            View watermarked resume ↗
+            View resume ↗
           </a>
         </section>
       )}

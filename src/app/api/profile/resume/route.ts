@@ -5,7 +5,7 @@ import { getD1Db } from "@/lib/db/client";
 import { candidateProfiles } from "@/lib/db/schema";
 import { getObject } from "@/lib/storage/r2";
 
-/** Candidate self-view of their own (un-watermarked) resume. */
+/** Candidate self-view of their own resume. */
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "candidate") {

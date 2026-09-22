@@ -11,7 +11,7 @@ import { badRequest, jsonOk, notFound } from "@/lib/api/v1/errors";
 
 export const dynamic = "force-dynamic";
 
-/** The candidate's own resume — no watermark (this is their file). */
+/** The candidate's own resume. */
 export async function GET(request: Request) {
   const { ctx, error } = await requireMobile(request, { role: "candidate" });
   if (error) return error;

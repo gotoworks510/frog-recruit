@@ -21,7 +21,7 @@
 ## 1. ゴールと非ゴール
 
 ### ゴール
-1. **企業（employer）向け iPhone アプリ** — Frog から紹介された候補者を **Tinder 風のカードデッキ** で確認し、右スワイプ=Interested / 左=Not interested / 上=Maybe で即フィードバック。透かし付きレジュメをアプリ内で閲覧。**新しい候補者が紹介されたら Push 通知**。
+1. **企業（employer）向け iPhone アプリ** — Frog から紹介された候補者を **Tinder 風のカードデッキ** で確認し、右スワイプ=Interested / 左=Not interested / 上=Maybe で即フィードバック。レジュメをアプリ内で閲覧。**新しい候補者が紹介されたら Push 通知**。
 2. **候補者（candidate）向け iPhone アプリ** — 自分のプロフィール/職歴/リンク/レジュメの編集、Frog による紹介先企業と進捗の確認。**企業からのアクション（Interested・プロフィール閲覧）や Frog による紹介ステータス更新があったら Push 通知**。
 3. Web 版と **同一の認可スパイン・同一の PII 最小化・同一の監査** を通す。モバイル専用の抜け道を作らない。
 4. 通知は **アプリ内 Inbox（既読管理）+ Push + 既存メール** の三層。ユーザーが種類ごとに Push を ON/OFF できる。
@@ -30,7 +30,7 @@
 - 管理者（Frog スタッフ）機能のモバイル化（管理は Web `/admin` のまま）。
 - Android 版（設計上は排除しないが、v1 は iOS のみ。React Native 採用で将来展開可）。
 - 候補者と企業の **直接チャット / 直接連絡**。Frog が仲介する原則は不変。
-- DRM。透かしは抑止であり、スクリーンショットは防げない（Web 版と同じ明示）。
+- DRM。スクリーンショットは防げない（Web 版と同じ明示）。
 - Google / Apple サインイン（§3-D 参照。credentials のみ）。
 
 ---
@@ -47,7 +47,7 @@
 | 行レベル認可 | `getEffectiveGrant(db, employerUserId, profileId)` = grant 有効 AND consent 有効 AND その会社向け（または汎用）の published+shared recommendation 存在。一覧は `listGrantedCandidateIds` | `src/lib/auth/grant.ts` |
 | 企業向け DTO | `buildEmployerCandidateView(db, profileId, { companyId })`。`internalNotesMd`・生メールは含まない。`frogScore` は企業向けのみ | `src/lib/employer/candidate-dto.ts` |
 | フィードバック | `candidate_feedback`（employer×candidate で upsert）。`interest ∈ {interested, maybe, not_interested}` / `wantsInterview` / `questionsMd` / `declineReasons[]` / `declineNote`。**interested に初めてなった時のみ** 候補者へメール + Frog Slack | `src/lib/employer/feedback-actions.ts`, `src/lib/employer/feedback.ts` |
-| レジュメ | PDF 限定（magic bytes）。企業向け配信は毎回 `pdf-lib` で「会社名＋閲覧者＋日時」透かし → `view_audit(download_resume)` → ストリーム。durable URL なし | `(employer)/portal/candidates/[id]/resume/route.ts`, `src/lib/pdf/watermark.ts` |
+| レジュメ | PDF 限定（magic bytes）。企業向け配信は `getEffectiveGrant` → 原本ストリーム → `view_audit(download_resume)`。durable URL なし | `(employer)/portal/candidates/[id]/resume/route.ts`, `src/lib/employer/resume-stream.ts` |
 | 監査 | `view_audit` 追記専用。`action ∈ {view_list, view_detail, view_resume, download_resume, preview_pdf, submit_feedback}` | `src/lib/audit/log.ts` |
 | 紹介パイプライン | `candidate_introductions`（candidate×company）。`status ∈ {planned, shared, interviewing, offer, hired, declined, withdrawn}`。`statusNote` は候補者に見せてよい、`noteInternal` は絶対に出さない。grant 作成時に `ensureIntroduction(status: "shared")` が自動作成 | `src/lib/db/schema/introductions.ts`, `src/lib/admin/actions.ts` |
 | 同意 | v1 は `share_with_employers`（広域）。候補者は `/me/sharing` で revoke / enable 可能。revoke すると全企業から即時不可視 | `src/lib/candidate/actions.ts` |
@@ -93,7 +93,7 @@
 │  recruit.frogagent.com — 既存 CF Worker (OpenNext / Next.js 15)  │
 │  追加: /api/v1/**  (route handlers, Bearer 認証)                 │
 │  再利用: getEffectiveGrant / buildEmployerCandidateView /        │
-│          watermarkPdf / writeAudit / sendEmail / notifySlack      │
+│          streamEmployerResume / writeAudit / sendEmail / notifySlack      │
 │  追加: src/lib/notify/{events,deliver,push,prefs}.ts             │
 │        src/lib/api/v1/{auth,contracts,errors}.ts                 │
 └───────┬──────────────┬──────────────┬──────────────┬────────────┘
@@ -197,7 +197,7 @@ Server Action に埋まっているコアを純関数へ抽出し、Action と A
 | 抽出先 | 抽出元 | 内容 |
 |---|---|---|
 | `src/lib/employer/feedback-core.ts` `upsertCandidateFeedback(db, {employerUserId, grant, input, audit})` | `feedback-actions.ts saveCandidateFeedback` | バリデーション・upsert・`newlyInterested` 判定・候補者メール・Slack・`submit_feedback` 監査。**戻り値に `newlyInterested` を含め、呼び出し側が `emit("employer.interested")` する** |
-| `src/lib/employer/resume-stream.ts` `buildWatermarkedResume(db, {employerUserId, companyId, viewerEmail, profileId, audit})` | `portal/candidates/[id]/resume/route.ts` | grant 検査・R2 取得・透かし・監査。`Response` を返す |
+| `src/lib/employer/resume-stream.ts` `streamEmployerResume(db, {employerUserId, companyId, profileId, audit})` | `portal/candidates/[id]/resume/route.ts` | grant 検査・R2 取得・原本ストリーム・監査。`Response` を返す |
 | `src/lib/candidate/profile-core.ts` | `candidate/actions.ts` の各 Action | `updateProfile / addExperience / deleteExperience / addLink / deleteLink / uploadResume / removeResume / enableConsent / revokeConsent / requestLinkedInRefresh` の本体を `(db, userId, input)` 関数に |
 | `src/lib/account/password-core.ts` | `(candidate)/me/account/password`, `(employer)/portal/account/password` の Action | 現行パス検証 → PBKDF2 更新 → `mustResetPassword=false` → **`revokeMobileSessions(userId, "password_changed", {exceptSessionId})`** |
 | `src/lib/legal/accept-core.ts` | `/legal` の Action | `termsAcceptedAt / termsVersion` 更新 |
@@ -247,7 +247,7 @@ Server Action に埋まっているコアを純関数へ抽出し、Action と A
 | `GET /employer/candidates?bucket=new\|interested\|maybe\|passed` | `listGrantedCandidateIds` → 一覧カード。各要素 `{ profileId, headline, yearsExperience, workAuthLabel, locationPreference, frogScore, recommendationExcerpt, introducedAt, introductionStatus, myFeedback: { interest, wantsInterview, updatedAt } \| null, hasResume }`。**`displayName` は一覧でも返してよい**（Web 一覧と同じ）。`bucket=new` は `myFeedback == null`。`view_list` 監査 |
 | `GET /employer/candidates/:id` | `buildEmployerCandidateView(db, id, { companyId })` + `myFeedback` + `introductionStatus`。`view_detail` 監査 → **`emit("employer.viewed")`** |
 | `PUT /employer/candidates/:id/feedback` | `{ interest, wantsInterview?, questionsMd?, declineReasons?, declineNote? }` → `upsertCandidateFeedback` → `{ feedback, newlyInterested }` |
-| `GET /employer/candidates/:id/resume` | `buildWatermarkedResume` → PDF ストリーム（`download_resume` 監査）。`canDownloadResume=false` は 403 |
+| `GET /employer/candidates/:id/resume` | `streamEmployerResume` → PDF ストリーム（`download_resume` 監査）。`canDownloadResume=false` は 403 |
 
 **Candidate（`role=candidate`、ゲート: mustReset / terms / consent。consent 関連は consent ゲート免除）**
 
@@ -258,7 +258,7 @@ Server Action に埋まっているコアを純関数へ抽出し、Action と A
 | `GET/POST /candidate/experiences`, `PATCH/DELETE /candidate/experiences/:id` | 所有権チェック必須 |
 | `GET/POST /candidate/links`, `DELETE /candidate/links/:id` | 同上 |
 | `POST /candidate/resume` | multipart `file`（PDF、既存 `uploadResume` と同じ magic-bytes・サイズ上限）→ R2 → **`emit("candidate.resume_updated")`**（Phase 3） |
-| `GET /candidate/resume` | 自分のレジュメ（透かし無し。Web `/api/profile/resume` 相当） |
+| `GET /candidate/resume` | 自分のレジュメ（Web `/api/profile/resume` 相当） |
 | `DELETE /candidate/resume` | |
 | `GET /candidate/preview` | 企業が見る形（`buildEmployerCandidateView` から **`recommendation` を除いた** もの） |
 | `POST /candidate/consent` | `{ action: "enable" \| "revoke", consentTextVersion }`。enable 後は **`syncCandidateVisibility()`**（§7.2） |
@@ -371,7 +371,7 @@ Push 許可は **初回デッキ表示の後** に出す（拒否率を下げる
 
 ### 8.5 候補者詳細
 Web `CandidateView` と同じ順序・同じ項目: ヘッダー（氏名・headline・Frog Score）→ 概要（location / preference / years / work auth / visa notes / availability / English / desired salary）→ Frog's recommendation（Strengths / Considerations, Markdown）→ Summary → Experience（タイムライン）→ Links（外部ブラウザ）→ Resume ボタン。
-- **Resume**: `GET /employer/candidates/:id/resume` を Bearer 付きでファイルキャッシュ（アプリのサンドボックス、`no-store` 相当で閉じたら削除）→ アプリ内 PDF ビューア。**共有シートを出さない・Files 保存ボタンを置かない**。画面上部に常時バナー「Confidential · Watermarked for {Company}」。`canDownloadResume=false` の場合はボタン自体を出さず「Resume available on request via Frog」。
+- **Resume**: `GET /employer/candidates/:id/resume` を Bearer 付きでファイルキャッシュ（アプリのサンドボックス、`no-store` 相当で閉じたら削除）→ アプリ内 PDF ビューア。**共有シートを出さない・Files 保存ボタンを置かない**。`canDownloadResume=false` の場合はボタン自体を出さず「Resume available on request via Frog」。
 - 下部固定に「Your feedback」バー（現在の評価 + 変更ボタン）。
 
 ### 8.6 Inbox
@@ -435,7 +435,7 @@ Inbox。`employer.interested` は強調表示（mint 背景 + ♥）。
 - **Deep link スキーム**: `frogrecruit://`（candidate）/ `frogrecruit-employer://`（employer）。Push の `data.route` は `introductions/{id}` / `candidates/{id}` / `inbox`。
 - **エラー表示**: ネットワーク = 上部バナー、検証 = フィールド、権限 = 画面差し替え（403 なら「This candidate is no longer available」→ 一覧へ）。
 - **ログ**: 端末ログ・Sentry へ **候補者名・メール・本文** を出さない。API クライアントはレスポンスボディを breadcrumb に残さない。
-- **スクリーンショット**: 防止しない。企業アプリの Resume 画面と詳細画面では `expo-screen-capture` の `addScreenshotListener` で **`view_audit` に `screenshot_detected` 相当を記録する** … は `view_audit.action` enum 変更を伴うため **Phase 3 で判断**（v1 は透かしのみ）。
+- **スクリーンショット**: 防止しない。企業アプリの Resume 画面と詳細画面では `expo-screen-capture` の `addScreenshotListener` で **`view_audit` に `screenshot_detected` 相当を記録する** … は `view_audit.action` enum 変更を伴うため **Phase 3 で判断**（v1 は監査ログのみ）。
 
 ---
 
@@ -445,7 +445,7 @@ Inbox。`employer.interested` は強調表示（mint 背景 + ♥）。
 2. JWT クレームで認可しない。毎リクエスト DB で role / disabled / status を再確認。
 3. refresh 回転 + 再利用検知。パスワード回転・無効化・削除でモバイルセッションと push token を即時失効。
 4. Push ペイロードに PII なし（§7.1）。Push は `data.route/id` のみで詳細はアプリが取得。
-5. レジュメは Bearer 必須の毎回透かし配信。アプリ内キャッシュはセッション終了で削除。共有導線なし。
+5. レジュメは Bearer 必須の毎回配信。アプリ内キャッシュはセッション終了で削除。共有導線なし。
 6. 監査: モバイル経由の `view_list / view_detail / download_resume / submit_feedback` が Web と同一テーブルに残る。
 7. `is_test` ユーザーの操作がメール・Slack を発火させない。
 8. App Transport Security 既定（HTTPS のみ）。証明書ピンニングはしない。

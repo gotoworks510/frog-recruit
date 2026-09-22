@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "Draft terms of use for the Frog Recruit private introduction portal.",
 };
 
-const LAST_UPDATED = "16 September 2026";
+const LAST_UPDATED = "18 September 2026";
 
 export default function TermsPage() {
   return (
@@ -163,8 +163,8 @@ export default function TermsPage() {
             them, or share them outside people who need them for that evaluation.
           </li>
           <li>
-            Do not attempt to circumvent access controls, watermarks, audit
-            logging, or invitation limits. Watermarks are a deterrent, not DRM.
+            Do not attempt to circumvent access controls, audit logging, or
+            invitation limits.
           </li>
           <li>
             Prefer feedback through the Service (for example Interested / Maybe

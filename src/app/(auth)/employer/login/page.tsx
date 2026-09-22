@@ -1,9 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn, auth } from "@/lib/auth/auth";
 import { roleHome } from "@/lib/auth/helpers";
 import { AuthSplitShell } from "@/components/auth/AuthSplitShell";
+import { AppDownloadPrompt } from "@/components/brand/AppDownloadSection";
+import { SmartAppBanner } from "@/components/brand/SmartAppBanner";
+
+export const metadata: Metadata = {
+  title: "Employer login — Frog Recruit",
+};
 
 async function employerLogin(formData: FormData) {
   "use server";
@@ -31,6 +38,7 @@ export default async function EmployerLoginPage({
   return (
     <AuthSplitShell
       audienceLabel="For hiring teams"
+      appVariant="employer"
       headline={
         <>
           Meet the person.
@@ -43,6 +51,7 @@ export default async function EmployerLoginPage({
         "A private introduction portal. Built on about 12 years of overseas career support.",
       ]}
     >
+      <SmartAppBanner variant="employer" />
       <p className="label-caps">Your company portal</p>
       <h2 className="mt-2 font-heading text-3xl font-semibold text-ink">
         Employer login
@@ -100,6 +109,8 @@ export default async function EmployerLoginPage({
           Forgot password?
         </Link>
       </p>
+
+      <AppDownloadPrompt variant="employer" layout="compact" className="mt-8" />
 
       <p className="mt-8 text-sm">
         <Link href="/login" className="font-medium text-primary hover:underline">

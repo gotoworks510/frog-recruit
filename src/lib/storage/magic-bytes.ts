@@ -1,6 +1,6 @@
 /**
- * Magic-byte validation. v1 restricts resume uploads to PDF only so the
- * watermark path is uniform; this verifies declared content actually is a PDF.
+ * Magic-byte validation. v1 restricts resume uploads to PDF only; this
+ * verifies declared content actually is a PDF.
  */
 
 interface MagicByteRule {

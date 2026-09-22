@@ -28,7 +28,7 @@ export default async function ResumePage({
           Resume
         </h1>
         <p className="mt-1 text-sm text-muted">
-          PDF only, 10MB maximum. When an employer views it, the resume is watermarked with the viewer and timestamp.
+          PDF only, 10MB maximum.
         </p>
       </div>
 

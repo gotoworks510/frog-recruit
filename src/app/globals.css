@@ -173,22 +173,3 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.9em;
 }
 
-/* On-screen confidential watermark band for the employer resume preview. */
-.wm-band {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(226, 84, 59, 0.06),
-    rgba(226, 84, 59, 0.06) 12px,
-    transparent 12px,
-    transparent 24px
-  );
-  color: #b23b27;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-align: center;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--color-line);
-}

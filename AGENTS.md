@@ -20,7 +20,7 @@ Frog が見極めた**海外就職候補者**を採用企業へ紹介する3者�
 1. **ドメインは `recruit.frogagent.com`** — `wrangler.toml` の `[[routes]] custom_domain=true` で DNS+証明書。旧 `recruit.frog-school.com` は残し、middleware で308。
 2. **Resend 送信元** — 全サービス統一で **`agent@frogagent.com`**（`RECRUIT_FROM_EMAIL` / `src/lib/email/resend.ts`）。
 3. **📧 メールは必ず共通HTMLシェル** — `sendEmail({ subject, subtitle, bodyHtml })` のみ使う（`src/lib/email/resend.ts` が `wrapEmailHtml` を強制適用）。素のテキストや独自フルHTMLで送らない。本文ビルダーは `src/lib/email/messages.ts` に追加し、中身だけ返す。
-4. **レジュメは PDF 限定**（透かし経路統一のため。`src/lib/storage/magic-bytes.ts` で magic-byte 強制）。
+4. **レジュメは PDF 限定**（`src/lib/storage/magic-bytes.ts` で magic-byte 強制）。
 5. **Google OAuth** — 承認済みリダイレクト URI に `https://recruit.frogagent.com/api/auth/callback/google` が必須（旧URIも一時残してよい）。
 
 ## アーキテクチャの約束
@@ -32,7 +32,7 @@ Frog が見極めた**海外就職候補者**を採用企業へ紹介する3者�
 - **推薦は会社別**（`recommendations.companyId`、null=汎用フォールバック）。候補者ごとに「紹介する会社」単位で推薦文を作成し、企業は自社向け推薦（無ければ汎用）を見る。`buildEmployerCandidateView(db, profileId, { companyId })` が会社一致→汎用の順で選択。admin の `/admin/candidates/[id]` は会社別カード＋会社セレクタ＋会社別プレビュー。
 - **行レベル認可スパイン = `requireGrant`/`getEffectiveGrant`**（`src/lib/auth/grant.ts`）。企業の候補者参照は全て通す。**有効アクセス = grant 有効（未失効・未期限切れ）AND 候補者の consent 有効 AND grant の会社向け（または汎用）の published+shared recommendation が存在**。一覧は `listGrantedCandidateIds` で同条件に絞る。
 - **PII 最小化**: 企業へ返すのは `src/lib/employer/candidate-dto.ts`（`buildEmployerCandidateView`）の DTO のみ。`internalNotesMd`・生メール等は**絶対に含めない**。recommendation は published+shared のみ。**`frogScore`（オススメ度）は企業向けのみ。候補者 `/me`・preview には出さない**（`CandidateView` の `mode="preview"` で推薦ブロックごと非表示）。
-- **レジュメ配信**: 企業向けは `(employer)/portal/candidates/[id]/resume/route.ts` のみ。`requireGrant` → `pdf-lib` で**企業名＋閲覧者＋日時の透かし**を毎回焼き込み → `view_audit` 追記 → ストリーム。durable URL は作らない。透かしは抑止でDRMではない。
+- **レジュメ配信**: 企業向けは `(employer)/portal/candidates/[id]/resume/route.ts` とモバイル `GET /api/v1/employer/candidates/[id]/resume`。どちらも `streamEmployerResume`（`src/lib/employer/resume-stream.ts`）経由。`getEffectiveGrant` → 原本PDFをストリーム → `view_audit` 追記。durable URL は作らない。透かしは入れない。
 - **監査 `view_audit` は追記専用**（`src/lib/audit/log.ts`）。削除経路なし。
 - **🌐 言語ポリシー（2026-06-22 オーナー決定・2026-09-15 再確認）**: ユーザーの大半が英語圏。**公開 / 候補者(`/me`) / 採用企業(`/portal`) 向け面・フッター・プレビュー帯・候補者/企業宛メール（`src/lib/email/messages.ts`）・`CandidateView`・`profile.ts` のラベル・ユーザー向けAPIエラーは英語のみ。日本語UI文字列を出さない。** **管理者(`/admin`) 専用ページと `src/lib/admin/actions.ts` は日本語のまま**（admin専用ラベル定数の JA も可）。新規 UI 追加時もこの線引きを守る。`react/no-unescaped-entities` は eslint で off（英語のアポストロフィでビルドが落ちるため）。
 - **⚠️ NextAuth は遅延設定（関数形）必須**（`src/lib/auth/auth.ts` の `NextAuth(() => ({...}))`）。OpenNext/Cloudflare では **Worker シークレット（`GOOGLE_CLIENT_SECRET`/`AUTH_SECRET`）は process.env にリクエスト時のみ注入**され、モジュール読込時は未定義。静的設定だと `Google({clientSecret: process.env...})` が undefined を掴み、**コールバックで `error=Configuration`（"There is a problem with the server configuration"）**になる。`[vars]`（`GOOGLE_CLIENT_ID` 等）はモジュール読込時から見えるので clientId だけ正しく出てしまい紛らわしい。関数形にして毎リクエスト読むことで解消（2026-06-22 修正）。
@@ -46,7 +46,7 @@ Frog が見極めた**海外就職候補者**を採用企業へ紹介する3者�
 | **行レベル認可スパイン** | `src/lib/auth/grant.ts`（`getEffectiveGrant` / `listGrantedCandidateIds`） |
 | 企業向け安全DTO | `src/lib/employer/candidate-dto.ts` |
 | パスワード(PBKDF2)・レート制限 | `src/lib/auth/password.ts`, `src/lib/ratelimit/kv.ts` |
-| レジュメ透かし | `src/lib/pdf/watermark.ts` |
+| 企業向けレジュメ配信 | `src/lib/employer/resume-stream.ts` |
 | 監査 | `src/lib/audit/log.ts` |
 | メール | `src/lib/email/{resend,templates,messages}.ts` |
 | DB クライアント（dual-mode） | `src/lib/db/client.ts`, `src/lib/db/d1-http-proxy.ts` |
@@ -98,12 +98,11 @@ npm run deploy              # @opennextjs/cloudflare build → wrangler deploy
 
 ## スモークテスト
 
-`docs/SMOKE-TEST.md` 参照（admin Google ログイン → 候補者招待 → プロフィール作成 → 推薦公開&共有 → 企業アカウント発行 → 権限付与 → 企業ログイン → 透かしレジュメ → 失効で 403）。
+`docs/SMOKE-TEST.md` 参照（admin Google ログイン → 候補者招待 → プロフィール作成 → 推薦公開&共有 → 企業アカウント発行 → 権限付与 → 企業ログイン → レジュメ閲覧 → 失効で 403）。
 
 ## 既知の注意 / TODO
 
 - 同意は v1 では `share_with_employers`（広域）を /consent で取得し `requireGrant` がこれを参照。`share_with_company`（企業別）もスキーマ対応済だが UI 未提供。法務方針が固まれば企業別へ。
-- 透かしは抑止でありDRMではない（スクショ/印刷で破れる）。信頼企業向けパイロットとして許容・関係者へ明示。
-- レジュメは PDF 限定（DOCX は透かし不可のため非対応）。
+- レジュメは PDF 限定（企業配信は原本をストリーム。DOCX は非対応）。
 - recommendation は候補者あたり1件（general, `jobId` null）を upsert。求人別推薦は将来拡張。
 - ルート CLAUDE.md ルール #5（社内ツールUI統一）: 本サービスは**一般ユーザー（候補者・企業）向け = 対象外**。Frog ブランドトークン（teal）で構築。admin 画面のみ将来 frog-admin-kit を着せてよい。

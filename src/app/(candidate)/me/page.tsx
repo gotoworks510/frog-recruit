@@ -13,6 +13,7 @@ import { INTRO_STATUS_LABELS } from "@/lib/introductions/labels";
 import type { IntroStatus } from "@/lib/db/schema/introductions";
 import { formatDateTime } from "@/lib/date";
 import { Logo } from "@/components/brand/Logo";
+import { AppDownloadPrompt } from "@/components/brand/AppDownloadSection";
 
 function cleanCompanyBlurb(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
@@ -321,6 +322,8 @@ export default async function CandidateHome({
           </Link>
         </div>
       </div>
+
+      <AppDownloadPrompt variant="candidate" />
     </div>
   );
 }

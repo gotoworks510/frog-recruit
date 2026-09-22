@@ -1,13 +1,12 @@
 import { requireMobile } from "@/lib/api/v1/require-mobile";
-import { buildWatermarkedResume } from "@/lib/employer/resume-stream";
+import { streamEmployerResume } from "@/lib/employer/resume-stream";
 import { forbidden, notFound, withNoStore } from "@/lib/api/v1/errors";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Watermarked PDF stream — the only employer resume path (§11-5). Watermarked
- * per request with company + viewer + timestamp, audited as `download_resume`,
- * and never cached. `canDownloadResume = false` → 403.
+ * Original PDF stream — the only employer resume path (§11-5). Audited as
+ * `download_resume` and never cached. `canDownloadResume = false` → 403.
  */
 export async function GET(
   request: Request,
@@ -17,11 +16,10 @@ export async function GET(
   if (error) return error;
 
   const { id } = await params;
-  const result = await buildWatermarkedResume(ctx.db, {
+  const result = await streamEmployerResume(ctx.db, {
     employerUserId: ctx.user.id,
     profileId: id,
     companyId: ctx.user.companyId,
-    viewerEmail: ctx.user.email,
     audit: {
       actorUserId: ctx.user.id,
       actorRole: "employer",

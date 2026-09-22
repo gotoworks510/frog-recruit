@@ -52,7 +52,7 @@ Web版のうち**候補者面(`/me`)と企業面(`/portal`)**をiPhoneネイテ�
 1. **行レベル認可は`src/lib/auth/grant.ts`が唯一の正本**。企業が候補者を見られる条件は、grantが有効(未失効・未期限切れ) **かつ** 候補者のconsentが有効 **かつ** その会社向けまたは汎用のpublished+shared recommendationが存在すること。モバイルAPIも必ず`getEffectiveGrant()`／`listGrantedCandidateIds()`を通す
 2. **企業へ返すのは`buildEmployerCandidateView()`のDTOだけ**。`internalNotesMd`・候補者の生メール・R2キーは絶対に含めない
 3. **Frogスコア(`recommendations.frogScore`)は企業専用**。候補者アプリのどこにも出さない（`src/lib/employer/frog-score.ts`のコメント通り）
-4. **レジュメはPDF限定、都度透かし焼き込み**。durable URLやpre-signed URLを作らない。企業への配信は必ずアプリ経由でストリームし、`view_audit`に追記する
+4. **レジュメはPDF限定、原本をストリーム**。durable URLやpre-signed URLを作らない。企業への配信は必ずアプリ経由でストリームし、`view_audit`に追記する。透かしは入れない
 5. **`view_audit`は追記専用**。削除経路を作らない
 6. **Frogキュレーションを迂回しない**。スワイプは「Frogが選んだ候補者に対する裁定」であって、候補者データベースの自由閲覧ではない。デッキに出るのはgrant済みの候補者のみ
 
@@ -232,7 +232,7 @@ Google招待で入った既存候補者には、アプリ初回利用時に「Se
 | POST / DELETE | `/candidate/links[/{id}]` | 同上 |
 | POST | `/candidate/resume` | multipart。PDF magic-byte検証（`validateMagicBytes`）→ R2 |
 | DELETE | `/candidate/resume` | R2削除 + profileをnull |
-| GET | `/candidate/resume` | 自己閲覧。**透かしなし**（既存`/api/profile/resume`と同じ挙動） |
+| GET | `/candidate/resume` | 自己閲覧（既存`/api/profile/resume`と同じ挙動） |
 | GET | `/candidate/preview` | 企業から見た自分。`buildEmployerCandidateView`から**frogScoreを除去**して返す |
 | GET | `/candidate/deck` | 未応答の紹介カード（`status`が`shared`以上 かつ `candidateResponse='pending'`） |
 | GET | `/candidate/introductions` | パイプライン全件。company, status, statusNote, employerInterested, matchedAt |
@@ -250,7 +250,7 @@ Google招待で入った既存候補者には、アプリ初回利用時に「Se
 | GET | `/employer/candidates` | `?filter=all\|interested\|maybe\|passed\|matched` |
 | GET | `/employer/candidates/{profileId}` | `getEffectiveGrant`必須 → `buildEmployerCandidateView(db, id, {companyId})`。`view_detail`をaudit |
 | POST | `/employer/candidates/{profileId}/feedback` | `{interest, wantsInterview, questionsMd, declineReasons[], declineNote}`。既存`saveCandidateFeedback`から抽出した共通サービスを呼ぶ |
-| GET | `/employer/candidates/{profileId}/resume` | `canDownloadResume`確認 → `watermarkPdf`で焼き込み → `download_resume`をaudit → ストリーム |
+| GET | `/employer/candidates/{profileId}/resume` | `canDownloadResume`確認 → 原本PDFをストリーム → `download_resume`をaudit |
 | POST | `/employer/candidates/{profileId}/screenshot` | アプリがスクショ検知したら送る。`view_audit`に`screenshot_taken` |
 | GET | `/employer/company` | 自社情報とオープン求人 |
 
@@ -566,7 +566,7 @@ Login、Terms gate、Deck、Card detail、Resume viewer、Reviewed、Settings、
 - 実機でスワイプ→`candidate_feedback`に正しく入る→Web版の`/admin`で確認できる
 - 機内モードでスワイプ→復帰後に自動送信される
 - 権限のない候補者IDを直接叩いても403
-- レジュメが透かし付きで表示され、共有シートが出ない
+- レジュメがアプリ内で表示され、共有シートが出ない
 - VoiceOverだけで全カードを裁定できる
 - パイロット企業1社にTestFlight配布
 
@@ -621,7 +621,7 @@ App Store申請（レビューノート＋デモアカウント）、プライ�
 | ガード | `src/lib/auth/helpers.ts`, `src/lib/candidate/guard.ts`, `src/lib/employer/guard.ts` |
 | パスワード(PBKDF2) | `src/lib/auth/password.ts` |
 | レート制限(KV) | `src/lib/ratelimit/kv.ts` |
-| 透かし | `src/lib/pdf/watermark.ts` |
+| 企業向けレジュメ配信 | `src/lib/employer/resume-stream.ts` |
 | 監査 | `src/lib/audit/log.ts` |
 | メール | `src/lib/email/{resend,messages}.ts` |
 | Slack通知 | `src/lib/slack/notify.ts` |
