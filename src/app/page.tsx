@@ -263,7 +263,7 @@ export default function LandingPage() {
               <div className="mt-10 grid grid-cols-3 gap-4 border-t border-line pt-8">
                 {[
                   { value: "~12 yrs", label: "community & career support" },
-                  { value: "650+", label: "people in the network" },
+                  { value: "700+", label: "people in the network" },
                   { value: "~220", label: "companies connected" },
                 ].map((s) => (
                   <div key={s.value}>
