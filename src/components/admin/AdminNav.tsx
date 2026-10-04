@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const NAV = [
   { href: "/admin", label: "ダッシュボード", exact: true },
+  { href: "/admin/sales", label: "営業・関係づくり" },
   { href: "/admin/candidates", label: "候補者" },
   { href: "/admin/invites", label: "招待" },
   { href: "/admin/job-inbox", label: "求人Inbox" },

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
-import { jobLeads } from "@/lib/db/schema";
+import { jobLeads, companies } from "@/lib/db/schema";
 import { isJobInboxEnabled } from "@/lib/job-inbox/config";
 import { convertJobLead, deleteJobLead, setJobLeadStatus } from "@/lib/job-inbox/actions";
 import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
@@ -32,6 +32,7 @@ export default async function JobLeadDetailPage({
   const db = await getD1Db();
   const lead = await db.select().from(jobLeads).where(eq(jobLeads.id, id)).get();
   if (!lead) notFound();
+  const companyList = await db.select({id:companies.id,name:companies.name}).from(companies).where(eq(companies.status,"active")).all();
 
   return (
     <div className="space-y-6">
@@ -86,7 +87,7 @@ export default async function JobLeadDetailPage({
             </button>
           </form>
         )}
-        <form action={deleteJobLead}>
+        {!lead.convertedJobId && <form action={deleteJobLead}>
           <input type="hidden" name="id" value={lead.id} />
           <ConfirmSubmitButton
             className="rounded-md border border-danger/30 px-3 py-1.5 text-xs text-danger hover:bg-red-50"
@@ -94,7 +95,7 @@ export default async function JobLeadDetailPage({
           >
             削除
           </ConfirmSubmitButton>
-        </form>
+        </form>}
       </div>
 
       <div className="card space-y-3 p-6 text-sm">
@@ -134,10 +135,11 @@ export default async function JobLeadDetailPage({
 
       {lead.convertedJobId ? (
         <div className="card p-6 text-sm">
-          既に求人化済みです（Inboxからは通常削除されます）。{" "}
+          求人化済みです。元の求人情報を履歴として保持しています。{" "}
           <Link href="/admin/companies" className="text-primary hover:underline">
             企業・求人へ
           </Link>
+          {" · "}<Link href="/admin/sales" className="text-primary underline">営業管理でこの既存企業を選択</Link>
         </div>
       ) : (
         <form action={convertJobLead} className="card grid gap-3 p-6 sm:grid-cols-2">
@@ -148,6 +150,8 @@ export default async function JobLeadDetailPage({
             `companies` / `jobs` に作成し、このリードを converted にします。既存の企業ポータルフローへ接続する入口です。
           </p>
           <input type="hidden" name="id" value={lead.id} />
+          <label className="text-sm">既存企業<select name="companyId" className={inputCls}><option value="">公式ドメインで照合／新規作成</option>{companyList.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+          <label className="text-sm">公式企業ドメイン（新規は必須）<input name="domain" placeholder="example.com" className={inputCls}/></label>
           <input
             name="companyName"
             defaultValue={lead.companyNameRaw ?? ""}

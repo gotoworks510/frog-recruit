@@ -11,3 +11,4 @@ export * from "./invites";
 export * from "./feedback";
 export * from "./job-leads";
 export * from "./mobile";
+export * from "./sales";

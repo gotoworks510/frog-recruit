@@ -8,6 +8,7 @@ import { getD1Db } from "@/lib/db/client";
 import { companies, jobLeads, jobs } from "@/lib/db/schema";
 import { isJobInboxEnabled } from "@/lib/job-inbox/config";
 import { detectSourceFromUrl, scoreJobLead, slugifyCompany } from "@/lib/job-inbox/score";
+import { normalizeDomain } from "@/lib/sales/model";
 
 function str(v: FormDataEntryValue | null): string | null {
   const s = (v as string | null)?.trim();
@@ -104,7 +105,6 @@ export async function convertJobLead(formData: FormData) {
   if (!lead) redirect("/admin/job-inbox?error=missing");
   if (lead.convertedJobId) {
     const companyId = lead.convertedCompanyId;
-    await db.delete(jobLeads).where(eq(jobLeads.id, id));
     revalidatePath("/admin/job-inbox");
     redirect(
       companyId
@@ -126,27 +126,32 @@ export async function convertJobLead(formData: FormData) {
         ? "USD"
         : "CAD";
 
-  let slug = slugifyCompany(companyName);
-  const slugTaken = await db
-    .select({ id: companies.id })
-    .from(companies)
-    .where(eq(companies.slug, slug))
-    .get();
-  if (slugTaken) slug = `${slug}-${crypto.randomUUID().slice(0, 6)}`;
-
-  const companyId = crypto.randomUUID();
-  const jobId = crypto.randomUUID();
+  const selectedId = str(formData.get("companyId"));
+  const domainRaw = str(formData.get("domain"));
+  const domain = domainRaw ? normalizeDomain(domainRaw) : null;
+  const companyList = await db.select().from(companies).all();
+  const matches = domain ? companyList.filter(c => { try { return c.domain && normalizeDomain(c.domain) === domain; } catch { return false; } }) : [];
+  if (!selectedId && matches.length > 1) throw new Error("同じドメインの企業が複数あります。既存企業を選択してください");
+  const existingCompany = selectedId ? companyList.find(c => c.id === selectedId) : matches[0];
+  if (existingCompany?.status === "archived") throw new Error("アーカイブ企業は先に企業画面で確認してください");
+  if (selectedId && !existingCompany) throw new Error("企業が見つかりません");
+  if (!existingCompany && !domain) throw new Error("既存企業を選ぶか公式ドメインを入力してください");
+  if (existingCompany?.domain && domain && normalizeDomain(existingCompany.domain) !== domain) throw new Error("選択した企業とドメインが一致しません");
+  const companyId = existingCompany?.id ?? `inbox-${id}`;
+  const jobId = `inbox-job-${id}`;
+  const slug = `${slugifyCompany(companyName)}-${id.slice(0,8)}`;
   const now = new Date();
 
-  await db.insert(companies).values({
+  const companyInsert = db.insert(companies).values({
     id: companyId,
     name: companyName,
     slug,
+    domain,
     description: `Imported from Job Inbox (${lead.source}). Source: ${lead.sourceUrl}`,
     status: "active",
     createdAt: now,
-  });
-  await db.insert(jobs).values({
+  }).onConflictDoNothing();
+  const jobInsert = db.insert(jobs).values({
     id: jobId,
     companyId,
     title,
@@ -157,8 +162,10 @@ export async function convertJobLead(formData: FormData) {
     createdAt: now,
   });
 
-  // Inbox is a queue — once published as a real job, drop the lead so it does not pile up.
-  await db.delete(jobLeads).where(eq(jobLeads.id, id));
+  // Preserve the original evidence and link it to canonical records.
+  const retainLead = db.update(jobLeads).set({ status:"converted", convertedCompanyId:companyId, convertedJobId:jobId, updatedAt:now }).where(eq(jobLeads.id,id));
+  if (existingCompany) await db.batch([jobInsert.onConflictDoNothing(),retainLead]);
+  else await db.batch([companyInsert,jobInsert.onConflictDoNothing(),retainLead]);
 
   revalidatePath("/admin/job-inbox");
   revalidatePath("/admin/companies");
@@ -172,6 +179,8 @@ export async function deleteJobLead(formData: FormData) {
   const id = str(formData.get("id"));
   if (!id) redirect("/admin/job-inbox?error=missing");
 
+  const lead = await db.select().from(jobLeads).where(eq(jobLeads.id,id)).get();
+  if (lead?.convertedJobId) throw new Error("求人化済みのリードは履歴として保持します");
   await db.delete(jobLeads).where(eq(jobLeads.id, id));
   revalidatePath("/admin/job-inbox");
   redirect("/admin/job-inbox?deleted=1");
