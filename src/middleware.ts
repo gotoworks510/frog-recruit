@@ -32,6 +32,16 @@ const PRIMARY_ORIGIN = "https://recruit.frogagent.com";
 export function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
   if (host === "sales.frog-school.com") {
+    if (request.nextUrl.protocol !== "https:") {
+      const secure = new URL(request.nextUrl.pathname + request.nextUrl.search, "https://sales.frog-school.com");
+      const response = ["GET", "HEAD"].includes(request.method)
+        ? NextResponse.redirect(secure, 308)
+        : new NextResponse(null, { status: 400 });
+      for (const [key, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(key,value);
+      response.headers.set("Cache-Control", "private, no-store");
+      response.headers.set("Referrer-Policy", "no-referrer");
+      return response;
+    }
     const pathname = request.nextUrl.pathname;
     let response: NextResponse;
     if (["/", "/admin", "/login"].includes(pathname)) {

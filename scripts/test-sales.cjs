@@ -147,6 +147,9 @@ async function main(){
     const {NextRequest}=require('next/server');
     const {middleware}=require('../src/middleware.ts');
     const request=(p,method='GET')=>new NextRequest('https://sales.frog-school.com'+p,{method,headers:{host:'sales.frog-school.com'}});
+    const insecure=new NextRequest('http://sales.frog-school.com/staff-login',{headers:{host:'sales.frog-school.com'}});
+    assert.equal(middleware(insecure).headers.get('location'),'https://sales.frog-school.com/staff-login');
+    assert.equal(middleware(new NextRequest(insecure,{method:'POST'})).status,400);
     assert.equal(middleware(request('/')).headers.get('location'),'https://sales.frog-school.com/admin/sales');
     assert.equal(middleware(request('/login')).headers.get('location'),'https://sales.frog-school.com/staff-login');
     for(const p of ['/admin/sales','/admin/sales/example','/admin/job-inbox','/api/auth/callback/google']){
