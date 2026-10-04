@@ -1,4 +1,5 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
+import { Auth } from "@auth/core";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { cookies, headers } from "next/headers";
@@ -31,8 +32,11 @@ export function isAdminEmail(email: string): boolean {
 // time, not at module-load. Evaluating the config per-request ensures the
 // OAuth client secret is read correctly (a static config captures it as
 // undefined → "Configuration" error at the callback / token exchange).
-export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
+function createAuthConfig(salesOnly = false): NextAuthConfig { return {
   trustHost: true,
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  basePath: "/api/auth",
+  ...(salesOnly ? { logger: { error: () => console.error("[sales-auth] Sign-in failed") } } : {}),
   session: { strategy: "jwt" as const },
   providers: [
     Google({
@@ -41,7 +45,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
     }),
     // Credential login (email + PBKDF2 password issued by an admin).
     // Used by employers and by candidates created via admin account issuance.
-    Credentials({
+    ...(!salesOnly ? [Credentials({
       name: "Email",
       credentials: {
         email: { label: "Email", type: "email" },
@@ -123,13 +127,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
           return null;
         }
       },
-    }),
+    })] : []),
   ],
   pages: {
-    signIn: "/login",
+    signIn: salesOnly ? "/staff-login" : "/login",
+    ...(salesOnly ? { error: "/staff-login" } : {}),
   },
   callbacks: {
     async signIn({ user, account }) {
+      if (salesOnly && (account?.provider !== "google" || !user.email || !isAdminEmail(user.email))) return false;
       // Credential sign-in is already validated in authorize().
       if (account?.provider === "credentials") return true;
 
@@ -293,4 +299,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       return session;
     },
   },
-}));
+}; }
+
+export const { handlers, auth, signIn, signOut } = NextAuth(() => createAuthConfig());
+
+/** Same Worker/secrets, separate host-only cookies. Preserve Recruit's existing URL config. */
+export async function salesAuth(request: Request): Promise<Response> {
+  if (new URL(request.url).origin !== "https://sales.frog-school.com") {
+    return new Response("Forbidden", { status: 403 });
+  }
+  return Auth(request, createAuthConfig(true));
+}

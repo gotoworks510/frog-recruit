@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { StaffAuthButton } from "@/components/admin/StaffAuthButton";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/helpers";
 import { signOut } from "@/lib/auth/auth";
@@ -16,6 +17,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await requireAdmin();
+  const salesHost = (await headers()).get("host") === "sales.frog-school.com";
 
   const jar = await cookies();
   const payload = await decodeViewAsCookie(jar.get(VIEW_AS_COOKIE)?.value);
@@ -73,7 +75,7 @@ export default async function AdminLayout({
           </div>
           <div className="flex items-center gap-4 text-sm text-muted">
             <span className="hidden sm:inline">{session.user.email}</span>
-            <form
+            {salesHost ? <StaffAuthButton logout/> : <form
               action={async () => {
                 "use server";
                 const { clearViewAsCookie } = await import("@/lib/auth/view-as");
@@ -82,7 +84,7 @@ export default async function AdminLayout({
               }}
             >
               <button className="hover:text-ink">ログアウト</button>
-            </form>
+            </form>}
           </div>
         </div>
         <AdminNav />

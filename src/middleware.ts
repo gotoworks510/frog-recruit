@@ -31,6 +31,24 @@ const PRIMARY_ORIGIN = "https://recruit.frogagent.com";
 
 export function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
+  if (host === "sales.frog-school.com") {
+    const pathname = request.nextUrl.pathname;
+    let response: NextResponse;
+    if (["/", "/admin", "/login"].includes(pathname)) {
+      if (!["GET", "HEAD"].includes(request.method)) response = new NextResponse(null, {status:405});
+      else response = NextResponse.redirect(new URL(pathname === "/login" ? "/staff-login" : "/admin/sales", "https://sales.frog-school.com"), 302);
+    } else if (/^\/(admin\/(sales|job-inbox)|staff-login|api\/auth|legal|brand)(\/|$)/.test(pathname) || pathname === "/icon.svg") {
+      response = NextResponse.next();
+    } else if (/^\/(admin|portal|me)(\/|$)/.test(pathname) && ["GET", "HEAD"].includes(request.method)) {
+      response = NextResponse.redirect(new URL(pathname, PRIMARY_ORIGIN), 302);
+    } else response = new NextResponse(null, {status:404});
+    for (const [key, value] of Object.entries(SECURITY_HEADERS)) response.headers.set(key,value);
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+    response.headers.set("CDN-Cache-Control", "no-store");
+    response.headers.set("Cloudflare-CDN-Cache-Control", "no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
   if (host === LEGACY_HOST) {
     const dest = new URL(
       `${request.nextUrl.pathname}${request.nextUrl.search}`,

@@ -143,16 +143,37 @@ async function main(){
       assert.match(response.headers.get('cache-control'),/no-store/);
     }finally{Module._load=load;}
   });
-  await check('sales entry never proxies data, forwards queries, or accepts mutations',async()=>{
-    const entry=require('../src/sales-entry.ts').default;
-    const response=await entry.fetch(new Request('https://sales.frog-school.com/admin/sales/private?token=never-forward'));
-    assert.equal(response.status,302);
-    assert.equal(response.headers.get('location'),'https://recruit.frogagent.com/staff-login');
-    assert.match(response.headers.get('cache-control'),/no-store/);
-    assert.equal(response.headers.get('set-cookie'),null);
-    assert.equal(await response.text(),'');
-    const denied=await entry.fetch(new Request('https://sales.frog-school.com/',{method:'POST',body:'private-data'}));
-    assert.equal(denied.status,405);assert.equal(denied.headers.get('location'),null);
+  await check('sales hostname serves only sales, Inbox and host-local auth routes',async()=>{
+    const {NextRequest}=require('next/server');
+    const {middleware}=require('../src/middleware.ts');
+    const request=(p,method='GET')=>new NextRequest('https://sales.frog-school.com'+p,{method,headers:{host:'sales.frog-school.com'}});
+    assert.equal(middleware(request('/')).headers.get('location'),'https://sales.frog-school.com/admin/sales');
+    assert.equal(middleware(request('/login')).headers.get('location'),'https://sales.frog-school.com/staff-login');
+    for(const p of ['/admin/sales','/admin/sales/example','/admin/job-inbox','/api/auth/callback/google']){
+      const r=middleware(request(p));assert.equal(r.headers.get('x-middleware-next'),'1');assert.match(r.headers.get('cache-control'),/no-store/);
+    }
+    for(const p of ['/api/desk/job-leads','/api/v1/employer/company','/api/admin/view-as'])assert.equal(middleware(request(p,'POST')).status,404);
+    assert.equal(middleware(request('/admin/candidates')).headers.get('location'),'https://recruit.frogagent.com/admin/candidates');
+    assert.equal(middleware(request('/admin/candidates','POST')).status,404);
+  });
+  await check('sales auth config rejects non-admin Google accounts and all credentials (mock transport)',async()=>{
+    const load=Module._load;let config;
+    Module._load=function(name,...args){
+      if(name==='next-auth')return {__esModule:true,default:()=>({})};
+      if(name==='@auth/core')return {Auth:async(_request,c)=>{config=c;return new Response(null);}};
+      if(name==='next-auth/providers/google')return {__esModule:true,default:()=>({id:'google'})};
+      if(name==='next-auth/providers/credentials')return {__esModule:true,default:()=>({id:'credentials'})};
+      if(name==='@/lib/db/client')return {getD1Db:async()=>{throw Error('unauthorized auth must not read DB');}};
+      return load.call(this,name,...args);
+    };
+    try {
+      const {salesAuth}=require('../src/lib/auth/auth.ts');
+      assert.equal((await salesAuth(new Request('https://untrusted.example/api/auth/session'))).status,403);
+      await salesAuth(new Request('https://sales.frog-school.com/api/auth/providers'));
+      assert.deepEqual(config.providers.map(p=>p.id),['google']);
+      assert.equal(await config.callbacks.signIn({user:{email:'nonadmin@example.test'},account:{provider:'google'}}),false);
+      assert.equal(await config.callbacks.signIn({user:{email:'nonadmin@example.test'},account:{provider:'credentials'}}),false);
+    }finally{Module._load=load;}
   });
   if(process.argv.includes('--ui')) await renderUI(id);
   console.log(`${count} integration checks passed; in-memory database only.`);

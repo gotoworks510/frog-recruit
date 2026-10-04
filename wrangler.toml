@@ -33,6 +33,10 @@ custom_domain = true
 pattern = "recruit.frog-school.com"
 custom_domain = true
 
+[[routes]]
+pattern = "sales.frog-school.com"
+custom_domain = true
+
 [vars]
 GOOGLE_CLIENT_ID = "1040291765049-ceb45aaaaaisdkt9vkh1hnkvbg9j5unm.apps.googleusercontent.com"
 NEXTAUTH_URL = "https://recruit.frogagent.com"
