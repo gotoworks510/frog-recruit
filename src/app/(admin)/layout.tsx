@@ -64,8 +64,9 @@ export default async function AdminLayout({
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <Link href="/admin">
-              <Logo variant="green" height={28} />
+              <Logo variant="green" height={38} />
             </Link>
+            <span className="text-sm font-semibold text-ink">Frog Recruit</span>
             <span className="rounded bg-frog/10 px-2 py-0.5 text-xs font-semibold text-frog-dark">
               ADMIN
             </span>

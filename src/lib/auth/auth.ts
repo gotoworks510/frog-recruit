@@ -118,8 +118,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
             role: row.role,
             companyId: row.companyId,
           };
-        } catch (e) {
-          console.error("[auth] credentials authorize error:", e);
+        } catch {
+          console.error("[auth] credentials authorize error:");
           return null;
         }
       },
@@ -158,8 +158,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
               inviteId = result.invite.id;
             }
           }
-        } catch (cookieErr) {
-          console.error("[auth] invite cookie error:", cookieErr);
+        } catch {
+          console.error("[auth] invite cookie error:");
         }
 
         const existing = await db
@@ -231,8 +231,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
           .where(eq(candidateInvites.id, inviteId));
 
         return true;
-      } catch (e) {
-        console.error("[auth] signIn D1 error:", e);
+      } catch {
+        console.error("[auth] signIn D1 error:");
         return false;
       }
     },
@@ -271,8 +271,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
               : null;
           }
         }
-      } catch (e) {
-        console.error("[auth] jwt D1 error:", e);
+      } catch {
+        console.error("[auth] jwt D1 error:");
         if (user) token.id = user.id;
       }
       return token;

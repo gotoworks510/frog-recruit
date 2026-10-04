@@ -48,17 +48,17 @@ async function main(){
   await check('cannot reopen without original request and approval',async()=>{await assert.rejects(()=>service.recordActivity(db,id,4,{...event,kind:'reopen',sourceUrl:''},'test-admin'));await service.recordActivity(db,id,4,{...event,kind:'reopen'},'test-admin');});
   await check('safe URLs and invalid dates rejected',async()=>{assert.equal(model.safeUrl.safeParse('javascript:alert(1)').success,false);assert.equal(model.dateOnly.safeParse('2026-99-01').success,false);assert.equal(model.dateOnly.safeParse('2026-02-30').success,false);});
   await check('foreign-company job cannot be linked',async()=>{const r=await service.getProspect(db,id);await assert.rejects(()=>service.updateProspect(db,id,5,{...base,domain:r.domain,companyId:r.companyId,jobId:'foreign-job'},'test-admin'));});
-  await check('received needs become canonical job without candidate sharing',async()=>{await service.createSalesJob(db,id,5,'Backend Engineer','test-admin');const r=await service.getProspect(db,id);assert.ok(r.jobId);await service.recordActivity(db,id,6,{...event,kind:'handoff'},'test-admin');assert.equal((await service.getProspect(db,id)).stage,'introduction');assert.equal(sqlite.prepare('SELECT count(*) n FROM access_grants').get().n,0);});
+  await check('received needs become canonical job without candidate sharing',async()=>{await service.createSalesJob(db,id,5,'Backend Engineer','test-admin','Approved public role description',true);assert.equal(sqlite.prepare('SELECT description FROM jobs WHERE id=?').get('sales-job-'+id).description,'Approved public role description');const r=await service.getProspect(db,id);assert.ok(r.jobId);await service.recordActivity(db,id,6,{...event,kind:'handoff'},'test-admin');assert.equal((await service.getProspect(db,id)).stage,'introduction');assert.equal(sqlite.prepare('SELECT count(*) n FROM access_grants').get().n,0);});
   await check('edit keeps company/job ownership and logs next action',async()=>{const r=await service.getProspect(db,id);await service.updateProspect(db,id,7,{...base,companyId:r.companyId,domain:r.domain,jobId:r.jobId,stage:'introduction'},'test-admin');assert.equal((await service.getProspect(db,id)).version,8);});
   await check('converted Inbox evidence cannot be deleted',async()=>{sqlite.exec("INSERT INTO job_leads(id,source_url,captured_at,updated_at,converted_job_id) VALUES('fixture-lead','https://example.com/job',0,0,'fixture-job')");assert.throws(()=>sqlite.exec("DELETE FROM job_leads WHERE id='fixture-lead'"));});
   await check('draft has correct URLs, pricing, and no hiring guarantee',async()=>{const draft=model.storyDraft(base.openingLine);assert.ok(draft.includes(model.STORIES_URL));assert.ok(draft.includes(model.VIDEO_URL));assert.ok(draft.includes('5%'));assert.ok(draft.includes('12 months'));assert.ok(!draft.includes('guarantee'));});
   await check('Inbox conversion reuses chosen company, retains source, and is idempotent',async()=>{
     const load=Module._load;process.env.JOB_INBOX_ENABLED='1';
-    Module._load=function(name,...args){if(name==='@/lib/auth/helpers')return {requireAdmin:async()=>({user:{id:'test-admin'}})};if(name==='@/lib/db/client')return {getD1Db:async()=>db};if(name==='next/cache')return {revalidatePath(){}};if(name==='next/navigation')return {redirect:url=>{throw Error(`redirect:${url}`);}};return load.call(this,name,...args);};
+    Module._load=function(name,...args){if(name==='@/lib/sales/auth')return {requireAdminMutation:async()=>({user:{id:'test-admin'}})};if(name==='@/lib/db/client')return {getD1Db:async()=>db};if(name==='next/cache')return {revalidatePath(){}};if(name==='next/navigation')return {redirect:url=>{const e=Error(`redirect:${url}`);e.digest=`NEXT_REDIRECT;replace;${url};307;`;throw e;}};return load.call(this,name,...args);};
     try {
       const {convertJobLead}=require('../src/lib/job-inbox/actions.ts');
       sqlite.exec("INSERT INTO job_leads(id,source_url,company_name_raw,title_raw,captured_at,updated_at) VALUES('convert-fixture','https://example.com/jobs/new','Example Labs','Engineer',0,0)");
-      const row=await service.getProspect(db,id), form=new FormData();form.set('id','convert-fixture');form.set('companyId',row.companyId);
+      const row=await service.getProspect(db,id), form=new FormData();form.set('id','convert-fixture');form.set('companyId',row.companyId);form.set('description','Approved public role');form.set('shareApproved','on');
       await assert.rejects(()=>convertJobLead(form),/redirect:/);await assert.rejects(()=>convertJobLead(form),/redirect:/);
       assert.equal(sqlite.prepare('SELECT count(*) n FROM companies').get().n,1);
       assert.equal(sqlite.prepare("SELECT count(*) n FROM jobs WHERE id='inbox-job-convert-fixture'").get().n,1);
@@ -66,8 +66,93 @@ async function main(){
     } finally {Module._load=load;}
   });
   await check('server actions reject before touching the database when unauthorized',async()=>{
-    const load=Module._load;Module._load=function(name,...args){if(name==='@/lib/auth/helpers')return {requireAdmin:async()=>{throw Error('denied');}};if(name==='@/lib/db/client')return {getD1Db:async()=>{throw Error('database should not be reached');}};if(name==='next/cache')return {revalidatePath(){}};return load.call(this,name,...args);};
+    const load=Module._load;Module._load=function(name,...args){if(name==='@/lib/sales/auth')return {requireAdminMutation:async()=>{throw Error('denied');}};if(name==='@/lib/db/client')return {getD1Db:async()=>{throw Error('database should not be reached');}};if(name==='next/cache')return {revalidatePath(){}};return load.call(this,name,...args);};
     try {const actions=require('../src/lib/sales/actions.ts');for(const name of ['createSales','saveSales','addSalesActivity','addSalesJob'])await assert.rejects(()=>actions[name]({},new FormData()),/denied/);}finally{Module._load=load;}
+  });
+  await check('shared job requires explicit approval; internal errors are never returned',async()=>{
+    const next=await service.createProspect(db,{...base,domain:'private.example',companyName:'Private Example'},'test-admin');
+    await assert.rejects(()=>service.createSalesJob(db,next,0,'Engineer','test-admin'));
+    assert.equal(sqlite.prepare('SELECT count(*) n FROM jobs WHERE id=?').get('sales-job-'+next).n,0);
+    const {salesFailure}=require('../src/lib/sales/errors.ts');
+    assert.ok(!salesFailure(new Error('秘密 hiring@example.com SELECT needs')).error.includes('hiring@example.com'));
+    for(const url of ['javascript:alert(1)','data:text/html,test','https://user:password@example.com','https://example.com/\u0000']) assert.equal(model.safeUrl.safeParse(url).success,false);
+  });
+  await check('every Inbox mutation denies unauthorized requests before DB access',async()=>{
+    const load=Module._load;
+    const filename=require.resolve('../src/lib/job-inbox/actions.ts');
+    delete require.cache[filename];
+    Module._load=function(name,...args){
+      if(name==='@/lib/sales/auth')return {requireAdminMutation:async()=>{throw Error('denied');}};
+      if(name==='@/lib/db/client')return {getD1Db:async()=>{throw Error('database should not be reached');}};
+      if(name==='next/cache')return {revalidatePath(){}};
+      return load.call(this,name,...args);
+    };
+    try {
+      const actions=require(filename);
+      for(const name of ['createManualJobLead','setJobLeadStatus','convertJobLead','deleteJobLead']) {
+        const form=new FormData();form.set('id','convert-fixture');
+        await assert.rejects(()=>actions[name](form),/denied/);
+      }
+    }finally{Module._load=load;delete require.cache[filename];}
+  });
+  await check('sales guard fails closed for stale sessions and DB outage (mock auth/DB)',async()=>{
+    const load=Module._load;let current={role:'admin',status:'approved',terms:new Date()}, outage=false, origin='http://localhost:3005';
+    const session={user:{id:'admin-test',role:'admin',termsAcceptedAt:1}};
+    Module._load=function(name,...args){
+      if(name==='@/lib/auth/helpers')return {requireAdmin:async()=>session};
+      if(name==='@/lib/auth/view-as')return {};
+      if(name==='next/navigation')return {redirect:url=>{throw Error('redirect:'+url);}};
+      if(name==='next/headers')return {headers:async()=>new Headers({origin,host:'localhost:3005'})};
+      if(name==='@/lib/db/client')return {getD1Db:async()=>{if(outage)throw Error('private DB parameters');return {select:()=>({from:()=>({where:()=>({get:async()=>current})})})};}};
+      return load.call(this,name,...args);
+    };
+    try {
+      const guards=require('../src/lib/sales/auth.ts');
+      assert.equal((await guards.requireAdminMutation()).user.id,'admin-test');
+      origin='https://untrusted.example';await assert.rejects(()=>guards.requireAdminMutation(),/Request not allowed/);
+      for(const state of [{role:'employer',status:'approved',terms:1},{role:'admin',status:'rejected',terms:1},null]) {
+        current=state;await assert.rejects(()=>guards.requireSalesAdmin(),/redirect:/);
+      }
+      outage=true;await assert.rejects(()=>guards.requireSalesAdmin(),/redirect:/);
+    }finally{Module._load=load;}
+  });
+  await check('employer mobile response exposes approved description, never sales notes',async()=>{
+    const load=Module._load;const row=await service.getProspect(db,id);
+    Module._load=function(name,...args){
+      if(name==='@/lib/api/v1/require-mobile')return {requireMobile:async()=>({ctx:{db,user:{id:'employer-test',companyId:row.companyId}},error:null})};
+      if(name==='@/lib/api/v1/serialize')return {resolveEmployerCompany:async()=>({id:row.companyId,name:'Example Labs'})};
+      return load.call(this,name,...args);
+    };
+    try {const {GET}=require('../src/app/api/v1/employer/company/route.ts');const response=await GET(new Request('https://example.test/api/v1/employer/company'));const body=await response.text();assert.ok(body.includes('Approved public role description'));assert.ok(!body.includes(base.needs));assert.ok(!body.includes(base.contactEmail));assert.match(response.headers.get('cache-control'),/no-store/);}finally{Module._load=load;}
+  });
+  await check('capture preserves its scoped bearer contract without exposing sales data',async()=>{
+    const load=Module._load;
+    Module._load=function(name,...args){
+      if(name==='@/lib/db/client')return {getD1Db:async()=>db};
+      if(name==='@/lib/job-inbox/config')return {isJobInboxEnabled:()=>true,extensionTokenMatches:t=>t==='synthetic-capture-token'};
+      return load.call(this,name,...args);
+    };
+    try {
+      const {POST}=require('../src/app/api/desk/job-leads/route.ts');
+      const request=token=>new Request('https://example.test/api/desk/job-leads',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,Origin:'chrome-extension://synthetic'},body:JSON.stringify({sourceUrl:'https://example.test/jobs/fixture',title:'Engineer',companyName:'Example'})});
+      assert.equal((await POST(request('wrong'))).status,401);
+      const response=await POST(request('synthetic-capture-token'));
+      assert.equal(response.status,200);
+      assert.equal(response.headers.get('access-control-allow-credentials'),null);
+      const body=await response.json();assert.deepEqual(Object.keys(body).sort(),['duplicate','id','inboxUrl','ok']);
+      assert.match(response.headers.get('cache-control'),/no-store/);
+    }finally{Module._load=load;}
+  });
+  await check('sales entry never proxies data, forwards queries, or accepts mutations',async()=>{
+    const entry=require('../src/sales-entry.ts').default;
+    const response=await entry.fetch(new Request('https://sales.frog-school.com/admin/sales/private?token=never-forward'));
+    assert.equal(response.status,302);
+    assert.equal(response.headers.get('location'),'https://recruit.frogagent.com/staff-login');
+    assert.match(response.headers.get('cache-control'),/no-store/);
+    assert.equal(response.headers.get('set-cookie'),null);
+    assert.equal(await response.text(),'');
+    const denied=await entry.fetch(new Request('https://sales.frog-school.com/',{method:'POST',body:'private-data'}));
+    assert.equal(denied.status,405);assert.equal(denied.headers.get('location'),null);
   });
   if(process.argv.includes('--ui')) await renderUI(id);
   console.log(`${count} integration checks passed; in-memory database only.`);
@@ -78,7 +163,7 @@ async function renderUI(id){
   Module._load=function(name,parent,...args){
     if(name==='next/navigation')return {useRouter:()=>({push(){},refresh(){}}),notFound:()=>{throw Error('not found');}};
     if(name==='next/link')return {__esModule:true,default:({children,...props})=>React.createElement('a',props,children)};
-    if(name==='@/lib/auth/helpers')return {requireAdmin:async()=>({user:{id:'test-admin'}})};
+    if(name==='@/lib/sales/auth')return {requireAdminMutation:async()=>({user:{id:'test-admin'}})};
     if(name==='@/lib/db/client')return {getD1Db:async()=>db};
     if(name==='@/lib/sales/actions')return Object.fromEntries(['createSales','saveSales','addSalesActivity','addSalesJob'].map(n=>[n,async()=>({saved:true})]));
     return originalLoad.call(this,name,parent,...args);

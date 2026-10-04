@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth/helpers";
+import { requireSalesAdmin as requireAdmin } from "@/lib/sales/auth";
 import { getD1Db } from "@/lib/db/client";
 import { jobLeads, companies } from "@/lib/db/schema";
 import { isJobInboxEnabled } from "@/lib/job-inbox/config";
 import { convertJobLead, deleteJobLead, setJobLeadStatus } from "@/lib/job-inbox/actions";
 import { ConfirmSubmitButton } from "@/components/ui/ConfirmSubmitButton";
+import { externalHref } from "@/lib/sales/model";
 
 const inputCls =
   "w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
@@ -49,7 +50,7 @@ export default async function JobLeadDetailPage({
           </p>
         </div>
         <a
-          href={lead.sourceUrl}
+          href={externalHref(lead.sourceUrl)}
           target="_blank"
           rel="noreferrer"
           className="btn-primary px-4 py-2 text-sm"
@@ -101,7 +102,7 @@ export default async function JobLeadDetailPage({
       <div className="card space-y-3 p-6 text-sm">
         <p>
           <span className="text-muted">URL: </span>
-          <a href={lead.sourceUrl} className="break-all text-primary hover:underline">
+          <a href={externalHref(lead.sourceUrl)} rel="noreferrer" className="break-all text-primary hover:underline">
             {lead.sourceUrl}
           </a>
         </p>
@@ -182,12 +183,13 @@ export default async function JobLeadDetailPage({
           </select>
           <textarea
             name="description"
-            defaultValue={lead.descriptionRaw ?? ""}
+            defaultValue=""
             rows={6}
-            placeholder="求人内容"
+            placeholder="企業に共有できる求人内容（原文を確認して入力。社内メモは含めない）"
             className={`${inputCls} sm:col-span-2`}
           />
           <div className="sm:col-span-2">
+            <label className="block mb-3 text-sm"><input type="checkbox" name="shareApproved" required/> 求人名・勤務地・本文を企業に共有してよいことを確認しました</label>
             <button className="btn-primary px-5 py-2 text-sm">求人に変換</button>
           </div>
         </form>

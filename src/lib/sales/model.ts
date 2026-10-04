@@ -1,3 +1,4 @@
+import { SalesInputError } from "./errors";
 import { z } from "zod";
 import { SUBSEQUENT_HIRE_FEE_PCT, CONTRACTOR_FEE_PERIOD_MONTHS } from "../employer/fee-schedule";
 
@@ -7,11 +8,14 @@ export const REASONS = { "": "未分類", interested: "関心あり", role_recei
 export const TEMPLATE_VERSION = "story-v2-2026-10-04";
 export const STORIES_URL = "https://en.frogagent.com/stories/";
 export const VIDEO_URL = "https://youtu.be/deoQzsA3HRY";
-export const safeUrl = z.string().trim().max(2000).refine((v) => { if (!v) return true; try { const u = new URL(v); return ["https:", "http:"].includes(u.protocol) && !u.username && !u.password; } catch { return false; } }, "http/https のURLを入力してください");
+export const safeUrl = z.string().trim().max(2000).refine((v) => { if (!v) return true; try { const u = new URL(v); return ["https:", "http:"].includes(u.protocol) && !u.username && !u.password && !/[\u0000-\u001f\u007f]/.test(v); } catch { return false; } }, "http/https のURLを入力してください");
+export function externalHref(value: string | null | undefined) {
+  return value && safeUrl.safeParse(value).success ? value : undefined;
+}
 export const dateOnly = z.string().refine((s) => { try { return /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0,10) === s; } catch { return false; } }, "日付を確認してください");
 export function normalizeDomain(value: string): string {
   const u = new URL(value.includes("://") ? value : `https://${value}`);
-  if (!["http:", "https:"].includes(u.protocol) || u.username || u.password || !u.hostname.includes(".")) throw new Error("企業ドメインを確認してください");
+  if (!["http:", "https:"].includes(u.protocol) || u.username || u.password || !u.hostname.includes(".")) throw new SalesInputError("企業ドメインを確認してください");
   return u.hostname.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
 }
 export const prospectInput = z.object({

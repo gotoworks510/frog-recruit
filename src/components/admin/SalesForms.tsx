@@ -67,5 +67,5 @@ export function SalesJobForm({row}:{row:SalesProspect}) {
   const router=useRouter();
   useEffect(()=>{if(state.saved)router.refresh();},[state,router]);
   if(row.jobId)return null;
-  return <form action={action} className="card p-5 space-y-3"><h2 className="text-lg">受領した求人を登録</h2><p className="text-sm">上の求人ニーズを保存後、既存の企業・求人モデルへ登録します。候補者共有やアカウント発行は行いません。</p><input type="hidden" name="id" value={row.id}/><input type="hidden" name="version" value={row.version}/><Field label="求人名 *" name="title" required/><Feedback state={state} pending={pending}/></form>;
+  return <form action={action} className="card p-5 space-y-3"><h2 className="text-lg">受領した求人を登録</h2><p className="text-sm">登録する求人説明は企業画面にも表示されます。社内メモとは分けて、共有できる条件だけを入力してください。</p><input type="hidden" name="id" value={row.id}/><input type="hidden" name="version" value={row.version}/><Field label="求人名 *" name="title" required/><label className="block text-sm">企業に共有する求人説明 *<textarea name="sharedDescription" className="input-field mt-1" rows={5} maxLength={6000} required/></label><label className="block text-sm"><input name="shareApproved" type="checkbox" required/> 社内メモ・個人情報を含めず、企業に共有できる内容を確認しました</label><Feedback state={state} pending={pending}/></form>;
 }

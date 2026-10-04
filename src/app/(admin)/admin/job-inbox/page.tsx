@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { desc, ne } from "drizzle-orm";
-import { requireAdmin } from "@/lib/auth/helpers";
+import { requireSalesAdmin as requireAdmin } from "@/lib/sales/auth";
 import { getD1Db } from "@/lib/db/client";
 import { jobLeads } from "@/lib/db/schema";
 import { isJobInboxEnabled } from "@/lib/job-inbox/config";

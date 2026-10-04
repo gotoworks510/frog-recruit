@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { requireAdmin } from "@/lib/auth/helpers";
+import { requireAdminMutation } from "@/lib/sales/auth";
 import { getD1Db } from "@/lib/db/client";
 import { companies, jobLeads, jobs } from "@/lib/db/schema";
 import { isJobInboxEnabled } from "@/lib/job-inbox/config";
 import { detectSourceFromUrl, scoreJobLead, slugifyCompany } from "@/lib/job-inbox/score";
-import { normalizeDomain } from "@/lib/sales/model";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { SalesInputError } from "@/lib/sales/errors";
+import { normalizeDomain, safeUrl } from "@/lib/sales/model";
 
 function str(v: FormDataEntryValue | null): string | null {
   const s = (v as string | null)?.trim();
@@ -17,22 +19,24 @@ function str(v: FormDataEntryValue | null): string | null {
 
 function assertInboxEnabled() {
   if (!isJobInboxEnabled()) {
-    throw new Error("Job Inbox is disabled");
+    throw new SalesInputError("Job Inbox is disabled");
   }
 }
 
-export async function createManualJobLead(formData: FormData) {
-  await requireAdmin();
+async function createManualJobLeadInternal(formData: FormData) {
+  await requireAdminMutation();
   assertInboxEnabled();
   const db = await getD1Db();
 
   const sourceUrl = str(formData.get("sourceUrl"));
   if (!sourceUrl) redirect("/admin/job-inbox?error=missing");
+  if (!safeUrl.safeParse(sourceUrl).success) redirect("/admin/job-inbox?error=invalid-url");
 
   const titleRaw = str(formData.get("title"));
   const companyNameRaw = str(formData.get("companyName"));
   const locationRaw = str(formData.get("location"));
   const descriptionRaw = str(formData.get("description"));
+  if ([titleRaw, companyNameRaw, locationRaw].some(v => v && v.length > 500) || (descriptionRaw?.length ?? 0) > 20000) throw new SalesInputError("入力が長すぎます");
   const source = detectSourceFromUrl(sourceUrl);
   const score = scoreJobLead({
     title: titleRaw,
@@ -68,8 +72,8 @@ export async function createManualJobLead(formData: FormData) {
   redirect(`/admin/job-inbox/${id}`);
 }
 
-export async function setJobLeadStatus(formData: FormData) {
-  await requireAdmin();
+async function setJobLeadStatusInternal(formData: FormData) {
+  await requireAdminMutation();
   assertInboxEnabled();
   const db = await getD1Db();
   const id = str(formData.get("id"));
@@ -94,8 +98,8 @@ export async function setJobLeadStatus(formData: FormData) {
   revalidatePath(`/admin/job-inbox/${id}`);
 }
 
-export async function convertJobLead(formData: FormData) {
-  await requireAdmin();
+async function convertJobLeadInternal(formData: FormData) {
+  await requireAdminMutation();
   assertInboxEnabled();
   const db = await getD1Db();
   const id = str(formData.get("id"));
@@ -116,8 +120,9 @@ export async function convertJobLead(formData: FormData) {
   const companyName = str(formData.get("companyName")) || lead.companyNameRaw || "Unknown Co";
   const title = str(formData.get("title")) || lead.titleRaw || "Untitled role";
   const location = str(formData.get("location")) || lead.locationRaw;
-  const description =
-    str(formData.get("description")) || lead.descriptionRaw || lead.sourceUrl;
+  if (formData.get("shareApproved") !== "on") throw new SalesInputError("企業に共有する求人文を確認してください");
+  const description = str(formData.get("description"));
+  if (!description || description.length > 20000 || title.length > 500 || companyName.length > 500) throw new SalesInputError("企業に共有する求人文と必須項目を確認してください");
   const salaryCurrencyRaw = str(formData.get("salaryCurrency"));
   const salaryCurrency =
     salaryCurrencyRaw === "USD" || salaryCurrencyRaw === "CAD"
@@ -131,12 +136,12 @@ export async function convertJobLead(formData: FormData) {
   const domain = domainRaw ? normalizeDomain(domainRaw) : null;
   const companyList = await db.select().from(companies).all();
   const matches = domain ? companyList.filter(c => { try { return c.domain && normalizeDomain(c.domain) === domain; } catch { return false; } }) : [];
-  if (!selectedId && matches.length > 1) throw new Error("同じドメインの企業が複数あります。既存企業を選択してください");
+  if (!selectedId && matches.length > 1) throw new SalesInputError("同じドメインの企業が複数あります。既存企業を選択してください");
   const existingCompany = selectedId ? companyList.find(c => c.id === selectedId) : matches[0];
-  if (existingCompany?.status === "archived") throw new Error("アーカイブ企業は先に企業画面で確認してください");
-  if (selectedId && !existingCompany) throw new Error("企業が見つかりません");
-  if (!existingCompany && !domain) throw new Error("既存企業を選ぶか公式ドメインを入力してください");
-  if (existingCompany?.domain && domain && normalizeDomain(existingCompany.domain) !== domain) throw new Error("選択した企業とドメインが一致しません");
+  if (existingCompany?.status === "archived") throw new SalesInputError("アーカイブ企業は先に企業画面で確認してください");
+  if (selectedId && !existingCompany) throw new SalesInputError("企業が見つかりません");
+  if (!existingCompany && !domain) throw new SalesInputError("既存企業を選ぶか公式ドメインを入力してください");
+  if (existingCompany?.domain && domain && normalizeDomain(existingCompany.domain) !== domain) throw new SalesInputError("選択した企業とドメインが一致しません");
   const companyId = existingCompany?.id ?? `inbox-${id}`;
   const jobId = `inbox-job-${id}`;
   const slug = `${slugifyCompany(companyName)}-${id.slice(0,8)}`;
@@ -147,7 +152,7 @@ export async function convertJobLead(formData: FormData) {
     name: companyName,
     slug,
     domain,
-    description: `Imported from Job Inbox (${lead.source}). Source: ${lead.sourceUrl}`,
+    description: null,
     status: "active",
     createdAt: now,
   }).onConflictDoNothing();
@@ -164,24 +169,56 @@ export async function convertJobLead(formData: FormData) {
 
   // Preserve the original evidence and link it to canonical records.
   const retainLead = db.update(jobLeads).set({ status:"converted", convertedCompanyId:companyId, convertedJobId:jobId, updatedAt:now }).where(eq(jobLeads.id,id));
-  if (existingCompany) await db.batch([jobInsert.onConflictDoNothing(),retainLead]);
-  else await db.batch([companyInsert,jobInsert.onConflictDoNothing(),retainLead]);
+  if (existingCompany) await db.batch([jobInsert,retainLead]);
+  else await db.batch([companyInsert,jobInsert,retainLead]);
 
   revalidatePath("/admin/job-inbox");
   revalidatePath("/admin/companies");
   redirect(`/admin/companies?highlight=${companyId}&fromInbox=1`);
 }
 
-export async function deleteJobLead(formData: FormData) {
-  await requireAdmin();
+async function deleteJobLeadInternal(formData: FormData) {
+  await requireAdminMutation();
   assertInboxEnabled();
   const db = await getD1Db();
   const id = str(formData.get("id"));
   if (!id) redirect("/admin/job-inbox?error=missing");
 
   const lead = await db.select().from(jobLeads).where(eq(jobLeads.id,id)).get();
-  if (lead?.convertedJobId) throw new Error("求人化済みのリードは履歴として保持します");
+  if (lead?.convertedJobId) throw new SalesInputError("求人化済みのリードは履歴として保持します");
   await db.delete(jobLeads).where(eq(jobLeads.id, id));
   revalidatePath("/admin/job-inbox");
   redirect("/admin/job-inbox?deleted=1");
+}
+
+export async function createManualJobLead(formData: FormData) {
+  await requireAdminMutation();
+  try { return await createManualJobLeadInternal(formData); } catch(error) {
+    if (isRedirectError(error)) throw error;
+    throw new Error(error instanceof SalesInputError ? error.message : "Unable to save Inbox changes");
+  }
+}
+
+export async function setJobLeadStatus(formData: FormData) {
+  await requireAdminMutation();
+  try { return await setJobLeadStatusInternal(formData); } catch(error) {
+    if (isRedirectError(error)) throw error;
+    throw new Error(error instanceof SalesInputError ? error.message : "Unable to save Inbox changes");
+  }
+}
+
+export async function convertJobLead(formData: FormData) {
+  await requireAdminMutation();
+  try { return await convertJobLeadInternal(formData); } catch(error) {
+    if (isRedirectError(error)) throw error;
+    throw new Error(error instanceof SalesInputError ? error.message : "Unable to save Inbox changes");
+  }
+}
+
+export async function deleteJobLead(formData: FormData) {
+  await requireAdminMutation();
+  try { return await deleteJobLeadInternal(formData); } catch(error) {
+    if (isRedirectError(error)) throw error;
+    throw new Error(error instanceof SalesInputError ? error.message : "Unable to save Inbox changes");
+  }
 }

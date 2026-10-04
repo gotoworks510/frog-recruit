@@ -9,8 +9,8 @@ interface LogoProps {
 }
 
 /**
- * Official Frog wordmark (graduation-cap frog + "Frog"). NEVER substitute a 🐸
- * emoji or a generic frog icon — see root CLAUDE.md brand rule.
+ * Frog corporate logo, sourced unchanged from frogagent.com's header asset.
+ * Recruit is not a School service; never use the graduation-cap School mark here.
  */
 export function Logo({
   variant = "green",
@@ -18,8 +18,7 @@ export function Logo({
   height = 40,
   className,
 }: LogoProps) {
-  const src =
-    variant === "white" ? "/brand/logo-frog-w.png" : "/brand/logo-frog-green.png";
+  const src = "/brand/logo-frog-corporate.png";
   return (
     <Image
       src={src}
@@ -28,7 +27,7 @@ export function Logo({
       height={height}
       className={className}
       priority
-      style={{ height: "auto", width: "auto", maxHeight: height }}
+      style={{ height, width: "auto", maxWidth: width, objectFit: "contain", filter: variant === "white" ? "brightness(0) invert(1)" : undefined }}
     />
   );
 }

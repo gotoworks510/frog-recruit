@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getD1Db } from "@/lib/db/client";
 import { jobLeads } from "@/lib/db/schema";
+import { safeUrl } from "@/lib/sales/model";
+import { z } from "zod";
 import {
   extensionTokenMatches,
   isJobInboxEnabled,
@@ -28,6 +30,7 @@ function corsHeaders(origin: string | null): HeadersInit {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
+    "Cache-Control": "private, no-store",
     Vary: "Origin",
   };
 }
@@ -67,7 +70,7 @@ type CaptureBody = {
 
 /**
  * Chrome extension capture endpoint (dev / gated).
- * Auth: Authorization: Bearer <JOB_INBOX_TOKEN>
+ * Auth: existing capture-only Bearer token. Sales reads and conversion require an admin session.
  */
 export async function POST(request: Request) {
   const origin = request.headers.get("Origin");
@@ -87,10 +90,10 @@ export async function POST(request: Request) {
 
   let body: CaptureBody | null = null;
   try {
-    const parsed: unknown = await request.json();
-    if (parsed && typeof parsed === "object") {
-      body = parsed as CaptureBody;
-    }
+    const text = await request.text();
+    if (text.length > 64000) return json({error:"Payload too large"},{status:413,origin});
+    const short = z.string().max(500).nullable().optional();
+    body = z.object({ sourceUrl:safeUrl.refine(v=>!!v), source:z.string().max(500).optional(), externalId:short, companyName:short, title:short, location:short, description:z.string().max(20000).nullable().optional(), salary:short, postedAt:short, salaryCurrency:short, raw:z.object({titleDocument:short}).optional() }).parse(JSON.parse(text));
   } catch {
     return json({ error: "Invalid JSON" }, { status: 400, origin });
   }
@@ -111,7 +114,7 @@ export async function POST(request: Request) {
 
   let sourceUrl: string;
   try {
-    new URL(sourceUrlRaw);
+    safeUrl.parse(sourceUrlRaw);
     sourceUrl = normalizeJobSourceUrl(sourceUrlRaw);
   } catch {
     return json({ error: "sourceUrl must be a valid URL" }, { status: 400, origin });
@@ -149,6 +152,7 @@ export async function POST(request: Request) {
     salaryCurrency: normalizeSalaryCurrency(body.salaryCurrency),
   };
 
+  try {
   const db = await getD1Db();
   const existing = await db
     .select()
@@ -221,12 +225,7 @@ export async function POST(request: Request) {
         ok: true,
         id: existing.id,
         duplicate: true,
-        status: existing.status,
-        score,
-        title: titleRaw,
-        companyName: companyNameRaw,
-        salaryCurrency: incoming.salaryCurrency,
-        inboxUrl: `http://localhost:3005/admin/job-inbox/${existing.id}`,
+        inboxUrl: `/admin/job-inbox/${existing.id}`,
       },
       { origin }
     );
@@ -265,13 +264,9 @@ export async function POST(request: Request) {
       ok: true,
       id,
       duplicate: false,
-      status: "new",
-      score,
-      title: incoming.titleRaw,
-      companyName: incoming.companyNameRaw,
-      salaryCurrency: incoming.salaryCurrency,
-      inboxUrl: `http://localhost:3005/admin/job-inbox/${id}`,
+      inboxUrl: `/admin/job-inbox/${id}`,
     },
     { origin }
   );
+  } catch { return json({error:"Unable to save capture"},{status:500,origin}); }
 }
