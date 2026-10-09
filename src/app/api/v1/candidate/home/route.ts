@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import {
   candidateIntroductions,
   candidateProfiles,
@@ -9,6 +9,10 @@ import { requireMobile } from "@/lib/api/v1/require-mobile";
 import { cleanCompanyBlurb, companySiteUrl } from "@/lib/api/v1/serialize";
 import { INTRO_STATUS_LABELS } from "@/lib/introductions/labels";
 import type { IntroStatus } from "@/lib/db/schema/introductions";
+import {
+  roleNoticesForIntro,
+  statusNoteWithRoleNotices,
+} from "@/lib/introductions/close-notice";
 import { jsonOk, notFound } from "@/lib/api/v1/errors";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +58,7 @@ export async function GET(request: Request) {
     .all();
 
   const companyIds = [...new Set(intros.map((i) => i.companyId))];
-  const openJobs =
+  const companyJobs =
     companyIds.length === 0
       ? []
       : await ctx.db
@@ -62,9 +66,16 @@ export async function GET(request: Request) {
             companyId: jobs.companyId,
             title: jobs.title,
             location: jobs.location,
+            status: jobs.status,
+            closeNotice: jobs.closeNotice,
           })
           .from(jobs)
-          .where(and(eq(jobs.status, "open"), inArray(jobs.companyId, companyIds)))
+          .where(
+            and(
+              inArray(jobs.companyId, companyIds),
+              or(eq(jobs.status, "open"), eq(jobs.closeNotice, true))
+            )
+          )
           .all();
 
   return jsonOk({
@@ -75,26 +86,38 @@ export async function GET(request: Request) {
       hasResume: !!profile?.resumeKey,
     },
     consentActive: ctx.gates.consentActive,
-    introductions: intros.map((i) => ({
-      id: i.id,
-      company: {
-        id: i.companyId,
-        name: i.companyName,
-        blurb: cleanCompanyBlurb(i.companyDescription),
-        websiteUrl: companySiteUrl(i.companyDomain),
-      },
-      status: i.status,
-      statusLabel:
-        INTRO_STATUS_LABELS[i.status as IntroStatus] ?? i.status,
-      statusNote: i.statusNote,
-      jobs: openJobs
-        .filter((j) => j.companyId === i.companyId)
-        .map((j) => ({ title: j.title, location: j.location })),
-      candidateResponse: i.candidateResponse,
-      candidateRespondedAt: i.candidateRespondedAt
-        ? i.candidateRespondedAt.toISOString()
-        : null,
-      updatedAt: i.updatedAt ? i.updatedAt.toISOString() : null,
-    })),
+    introductions: intros.map((i) => {
+      const forCompany = companyJobs.filter((j) => j.companyId === i.companyId);
+      const closedNotice = roleNoticesForIntro({
+        introStatus: i.status,
+        companyName: i.companyName,
+        jobs: forCompany,
+      });
+      return {
+        id: i.id,
+        company: {
+          id: i.companyId,
+          name: i.companyName,
+          blurb: cleanCompanyBlurb(i.companyDescription),
+          websiteUrl: companySiteUrl(i.companyDomain),
+        },
+        status: i.status,
+        statusLabel:
+          INTRO_STATUS_LABELS[i.status as IntroStatus] ?? i.status,
+        statusNote: statusNoteWithRoleNotices(i.statusNote, closedNotice),
+        jobs: forCompany
+          .filter(
+            (j) =>
+              i.status === "hired" || (j.status === "open" && !j.closeNotice)
+          )
+          .map((j) => ({ title: j.title, location: j.location })),
+        closedNotice: closedNotice.length > 0 ? closedNotice : null,
+        candidateResponse: i.candidateResponse,
+        candidateRespondedAt: i.candidateRespondedAt
+          ? i.candidateRespondedAt.toISOString()
+          : null,
+        updatedAt: i.updatedAt ? i.updatedAt.toISOString() : null,
+      };
+    }),
   });
 }

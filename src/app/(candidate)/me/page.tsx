@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, eq, isNull, desc, inArray } from "drizzle-orm";
+import { and, eq, isNull, desc, inArray, or } from "drizzle-orm";
 import { requireCandidate } from "@/lib/auth/helpers";
 import { getD1Db } from "@/lib/db/client";
 import { getCandidateByUserId, computeCompleteness } from "@/lib/candidate/profile";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { INTRO_STATUS_LABELS } from "@/lib/introductions/labels";
 import type { IntroStatus } from "@/lib/db/schema/introductions";
+import { roleNoticesForIntro } from "@/lib/introductions/close-notice";
 import { formatDateTime } from "@/lib/date";
 import { Logo } from "@/components/brand/Logo";
 import { AppDownloadPrompt } from "@/components/brand/AppDownloadSection";
@@ -77,7 +78,7 @@ export default async function CandidateHome({
     .all();
 
   const companyIds = [...new Set(intros.map((i) => i.companyId))];
-  const openJobs =
+  const companyJobs =
     companyIds.length === 0
       ? []
       : await db
@@ -85,19 +86,47 @@ export default async function CandidateHome({
             companyId: jobs.companyId,
             title: jobs.title,
             location: jobs.location,
+            status: jobs.status,
+            closeNotice: jobs.closeNotice,
           })
           .from(jobs)
           .where(
-            and(eq(jobs.status, "open"), inArray(jobs.companyId, companyIds))
+            and(
+              inArray(jobs.companyId, companyIds),
+              or(eq(jobs.status, "open"), eq(jobs.closeNotice, true))
+            )
           )
           .all();
 
-  const jobsByCompany = new Map<string, typeof openJobs>();
-  for (const job of openJobs) {
+  const jobsByCompany = new Map<string, { title: string; location: string | null }[]>();
+  for (const job of companyJobs) {
+    if (job.status !== "open" || job.closeNotice) continue;
     const list = jobsByCompany.get(job.companyId) ?? [];
-    list.push(job);
+    list.push({ title: job.title, location: job.location });
     jobsByCompany.set(job.companyId, list);
   }
+
+  const noticesFor = (row: (typeof intros)[number]) =>
+    roleNoticesForIntro({
+      introStatus: row.status,
+      companyName: row.companyName,
+      jobs: companyJobs.filter((job) => job.companyId === row.companyId),
+    });
+  const introductionsCongratulated =
+    intros.length > 0 &&
+    intros.every((row) => {
+      const open = (jobsByCompany.get(row.companyId) ?? []).length > 0;
+      const notices = noticesFor(row);
+      return !open && notices.length > 0 && notices.every((n) => n.tone === "hired");
+    });
+  const introductionsWrappedUp =
+    !introductionsCongratulated &&
+    intros.length > 0 &&
+    intros.every((row) => {
+      const open = (jobsByCompany.get(row.companyId) ?? []).length > 0;
+      const notices = noticesFor(row);
+      return !open && notices.some((n) => n.tone === "closed");
+    });
 
   const firstName =
     (candidate.profile.displayName ?? session.user.name ?? "there")
@@ -138,15 +167,22 @@ export default async function CandidateHome({
               <h2 className="mt-5 font-heading text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
                 {intros.length === 0
                   ? "Frog will open doors for you here."
-                  : intros.length === 1
-                    ? "Frog is introducing you to this company."
-                    : `Frog is introducing you to ${intros.length} companies.`}
+                  : introductionsCongratulated
+                    ? "Congratulations."
+                  : introductionsWrappedUp
+                    ? intros.length === 1
+                      ? "Thank you. This introduction has wrapped up."
+                      : "Thank you. These introductions have wrapped up."
+                    : intros.length === 1
+                      ? "Frog is introducing you to this company."
+                      : `Frog is introducing you to ${intros.length} companies.`}
               </h2>
               <p className="mt-4 text-base leading-relaxed text-white/75 sm:text-lg">
-                These introductions only exist because Frog brought you to the
-                table. Without Frog&apos;s referral, these hiring teams would not
-                be reviewing your profile. Stay close to your Frog representative
-                as things move forward.
+                {introductionsCongratulated
+                  ? "You were selected for this role. Thank you for going through it with Frog."
+                  : introductionsWrappedUp
+                  ? "The role Frog connected you to has closed. If another opportunity comes up, we hope to be in touch again."
+                  : "These introductions only exist because Frog brought you to the table. Without Frog's referral, these hiring teams would not be reviewing your profile. Stay close to your Frog representative as things move forward."}
               </p>
             </div>
             <Link
@@ -175,7 +211,16 @@ export default async function CandidateHome({
               {intros.map((row) => {
                 const blurb = cleanCompanyBlurb(row.companyDescription);
                 const site = companySiteUrl(row.companyDomain);
-                const relatedJobs = jobsByCompany.get(row.companyId) ?? [];
+                const relatedJobs =
+                  row.status === "hired"
+                    ? companyJobs
+                        .filter((job) => job.companyId === row.companyId)
+                        .map((job) => ({
+                          title: job.title,
+                          location: job.location,
+                        }))
+                    : (jobsByCompany.get(row.companyId) ?? []);
+                const roleNotices = noticesFor(row);
                 return (
                   <li
                     key={row.id}
@@ -223,17 +268,40 @@ export default async function CandidateHome({
                           </div>
                         )}
 
+                        {roleNotices.length > 0 && (
+                          <div className="mt-4 space-y-3">
+                            {roleNotices.map((notice) => (
+                              <div
+                                key={notice.tone + notice.title}
+                                className="rounded-lg border border-frog-dark/15 bg-mint px-4 py-3"
+                              >
+                                <p className="text-xs font-semibold tracking-[0.1em] text-frog-dark uppercase">
+                                  {notice.tone === "hired"
+                                    ? "Congratulations"
+                                    : "This role has closed"}
+                                </p>
+                                <p className="mt-2 text-sm leading-relaxed text-ink/85">
+                                  {notice.message}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {row.statusNote && (
                           <p className="mt-4 rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink/80">
                             {row.statusNote}
                           </p>
                         )}
 
-                        <p className="mt-5 text-sm font-medium text-frog-dark">
-                          Frog recommended you to {row.companyName}. Keep your
-                          Frog contact in the loop — they are your bridge to this
-                          team.
-                        </p>
+                        {((jobsByCompany.get(row.companyId) ?? []).length > 0 ||
+                          roleNotices.length === 0) && (
+                          <p className="mt-5 text-sm font-medium text-frog-dark">
+                            Frog recommended you to {row.companyName}. Keep your
+                            Frog contact in the loop — they are your bridge to this
+                            team.
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex shrink-0 flex-col gap-3 lg:items-end lg:text-right">

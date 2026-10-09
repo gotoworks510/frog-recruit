@@ -353,10 +353,25 @@ export async function updateJob(formData: FormData) {
       salaryCurrency: str(formData.get("salaryCurrency")) ?? "USD",
       location: str(formData.get("location")),
       workAuthRequirement: str(formData.get("workAuthRequirement")),
-      status: (str(formData.get("status")) ?? "open") as "open" | "filled" | "closed",
+      ...closedRoleUpdate(formData),
     })
     .where(eq(jobs.id, id));
   revalidatePath("/admin/companies");
+  revalidatePath("/me");
+}
+
+/** Checking the notice closes an open role. Leaving the role open keeps the notice off. */
+function closedRoleUpdate(formData: FormData): {
+  status: "open" | "filled" | "closed";
+  closeNotice: boolean;
+} {
+  const requested = formData.get("closeNotice") === "on";
+  let status = (str(formData.get("status")) ?? "open") as
+    | "open"
+    | "filled"
+    | "closed";
+  if (requested && status === "open") status = "closed";
+  return { status, closeNotice: requested && status !== "open" };
 }
 
 export async function deleteJob(formData: FormData) {

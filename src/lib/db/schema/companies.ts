@@ -38,6 +38,13 @@ export const jobs = sqliteTable(
     status: text("status", { enum: ["open", "filled", "closed"] })
       .notNull()
       .default("open"),
+    /**
+     * When on, candidates already introduced to this company see a closing
+     * thank-you. Hired introductions see congratulations instead.
+     */
+    closeNotice: integer("close_notice", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),

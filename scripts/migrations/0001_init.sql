@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   location              TEXT,
   work_auth_requirement TEXT,
   status                TEXT NOT NULL DEFAULT 'open',
+  close_notice          INTEGER NOT NULL DEFAULT 0, -- 1 = candidate home shows a closed-role thank-you
   created_at            INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company_id);

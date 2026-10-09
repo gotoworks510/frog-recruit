@@ -84,6 +84,11 @@ export default async function AdminCompanies() {
                             （{j.status === "filled" ? "充足" : "クローズ"}）
                           </span>
                         )}
+                        {j.closeNotice && (
+                          <span className="ml-2 text-xs text-frog-dark">
+                            （終了のお知らせ表示中）
+                          </span>
+                        )}
                       </p>
                     </div>
                     <details className="mt-2">
@@ -110,6 +115,21 @@ export default async function AdminCompanies() {
                           </select>
                         </div>
                         <textarea name="description" defaultValue={j.description ?? ""} placeholder="求人内容" rows={4} className={`${inputCls} sm:col-span-2`} />
+                        <label className="flex items-start gap-2 text-sm text-ink sm:col-span-2">
+                          <input
+                            type="checkbox"
+                            name="closeNotice"
+                            value="on"
+                            defaultChecked={j.closeNotice}
+                            className="mt-1"
+                          />
+                          <span>
+                            候補者に募集終了のお知らせを出す
+                            <span className="mt-0.5 block text-xs text-muted">
+                              この企業へ紹介している候補者のホームに、応募へのお礼と、募集は終わったのでまた機会があれば、というメッセージを出します。採用になった紹介には、お祝いのメッセージを出します。オンにすると、募集中の求人はクローズになります。
+                            </span>
+                          </span>
+                        </label>
                         <div className="flex items-center justify-between sm:col-span-2">
                           <button className="btn-primary px-5 py-2 text-sm">求人を更新</button>
                         </div>

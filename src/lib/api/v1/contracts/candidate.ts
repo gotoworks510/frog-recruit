@@ -121,11 +121,30 @@ export const candidateHomeSchema = z.object({
       }),
       status: z.string(),
       statusLabel: z.string(),
-      /** Candidate-safe note. `noteInternal` is NEVER returned. */
+      /**
+       * Candidate-safe note. `noteInternal` is NEVER returned.
+       * When `closedNotice` is set, this string starts with the same sentences
+       * so current apps (which only render `statusNote`) still show them.
+       */
       statusNote: z.string().nullable(),
+      /** Open roles, plus the closed role when this introduction was hired. */
       jobs: z.array(
         z.object({ title: z.string(), location: z.string().nullable() })
       ),
+      /**
+       * Set when an admin turns on the closed-role notice for this company.
+       * `hired` is the congratulations copy. `closed` is the thank-you for everyone else.
+       */
+      closedNotice: z
+        .array(
+          z.object({
+            tone: z.enum(["closed", "hired"]),
+            title: z.string(),
+            location: z.string().nullable(),
+            message: z.string(),
+          })
+        )
+        .nullable(),
       candidateResponse: z.enum(["interested", "consult", "pass"]).nullable(),
       candidateRespondedAt: z.string().nullable(),
       updatedAt: z.string().nullable(),
